@@ -1,0 +1,15 @@
+{
+  "name": "noj-os",
+  "version": "1.0.0",
+  "description": "No'j OS · sistema operativo para agencias de contenido",
+  "scripts": {
+    "db:local": "wrangler d1 migrations apply noj-os --local",
+    "dev": "wrangler pages dev public",
+    "db:remote": "wrangler d1 migrations apply noj-os --remote"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "wrangler": "^3.114.17"
+  },
+  "private": true
+}

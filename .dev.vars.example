@@ -1,0 +1,6 @@
+# Copia este archivo como .dev.vars para probar en tu compu (no se sube a GitHub)
+DEV_USER_EMAIL=nojstudiomx@gmail.com
+# 1 = los agentes responden con texto de prueba sin gastar API
+AI_MOCK=1
+# ANTHROPIC_API_KEY=
+# RESEND_API_KEY=

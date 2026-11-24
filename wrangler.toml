@@ -1,0 +1,23 @@
+# No'j OS · Cloudflare Pages + Functions + D1 + R2
+name = "noj-os"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+[vars]
+APP_NAME = "No'j OS"
+# Dominio del equipo de Cloudflare Zero Trust, p. ej. "nojstudio.cloudflareaccess.com"
+ACCESS_TEAM_DOMAIN = ""
+# AUD del Application de Access que protege /app y /api/team
+ACCESS_AUD = ""
+# Remitente de correos (requiere RESEND_API_KEY como secreto)
+MAIL_FROM = "No'j Studio <onboarding@resend.dev>"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "noj-os"
+database_id = "REEMPLAZAR_CON_ID_DE_D1"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "noj-os-media"
