@@ -6,9 +6,9 @@ pages_build_output_dir = "public"
 [vars]
 APP_NAME = "No'j OS"
 # Dominio del equipo de Cloudflare Zero Trust, p. ej. "nojstudio.cloudflareaccess.com"
-ACCESS_TEAM_DOMAIN = ""
+ACCESS_TEAM_DOMAIN = "nojstudio.cloudflareaccess.com"
 # AUD del Application de Access que protege /app y /api/team
-ACCESS_AUD = ""
+ACCESS_AUD = "418096f4b6ea8118cc67b5d52563b4ebab2188235723c0f63467891f1dcd5986"
 # Remitente de correos (requiere RESEND_API_KEY como secreto)
 MAIL_FROM = "No'j Studio <onboarding@resend.dev>"
 
