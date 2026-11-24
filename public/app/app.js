@@ -249,7 +249,7 @@ function parrilla() {
   const cal = days.map((d) => { const post = app.posts.find((x) => x.publish_on === d); const dd = D(d);
     return `<button class="day ${cls} ${post ? 'has' : ''} ${post && post.id === app.sel ? 'on' : ''}" data-act="${post ? 'pick' : 'new-post'}" data-id="${post ? post.id : ''}" data-date="${d}" aria-label="${label(d)}${post ? ' · P' + post.number + ' ' + esc(post.title) : ' · agregar publicación'}">
       <span class="hd"><span class="wd">${WD[dd.getUTCDay()]}</span><span class="n">${dd.getUTCDate()}</span></span>
-      ${post ? `<span class="chip">${post.media[0] && !post.media[0].video ? `<img src="${esc(post.media[0].url)}" alt="" loading="lazy">` : `<span class="noimg">${esc(post.title)}</span>`}<span class="lb"><i style="background:${stc(post.status)}"></i>P${post.number} · ${KIND[post.kind]}</span></span>` : '<span class="add">+</span>'}</button>`; }).join('');
+      ${post ? `<span class="chip">${post.media[0] && !post.media[0].video ? `<img src="${esc(post.media[0].url)}" alt="" loading="lazy">` : `<span class="noimg">${esc(post.title)}</span>`}<span class="lb"><i style="background:${stc(post.status)}"></i>P${post.number}<span class="k"> · ${KIND[post.kind]}</span></span></span>` : '<span class="add">+</span>'}</button>`; }).join('');
   // grid del perfil: lo publicado + lo programado hasta el fin del periodo
   const grid = app.posts.filter((x) => x.status === 'pub' || (x.publish_on && x.publish_on <= p.end));
   const c = app.client;
