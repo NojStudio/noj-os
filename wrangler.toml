@@ -15,7 +15,7 @@ MAIL_FROM = "No'j Studio <onboarding@resend.dev>"
 [[d1_databases]]
 binding = "DB"
 database_name = "noj-os"
-database_id = "REEMPLAZAR_CON_ID_DE_D1"
+database_id = "bd1db0f2-927a-4620-aa47-017b67bb8fec"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
