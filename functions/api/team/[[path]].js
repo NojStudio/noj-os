@@ -205,7 +205,7 @@ async function deleteMedia(env, W, mid) {
     'SELECT pm.*, p.id AS pid FROM post_media pm JOIN posts p ON p.id=pm.post_id JOIN clients c ON c.id=p.client_id WHERE pm.id=? AND c.workspace_id=?'
   ).bind(mid, W).first();
   if (!m) return fail(404, 'Archivo no encontrado');
-  await env.MEDIA.delete(m.r2_key);
+  if (!m.r2_key.startsWith('seed/')) await env.MEDIA.delete(m.r2_key);
   await env.DB.prepare('DELETE FROM post_media WHERE id=?').bind(mid).run();
   return getPost(env, W, m.pid);
 }

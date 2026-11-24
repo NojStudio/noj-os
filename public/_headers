@@ -7,3 +7,5 @@
 /app/*
   X-Robots-Tag: noindex
   Cache-Control: no-cache
+/_seed/*
+  X-Robots-Tag: noindex
