@@ -30,6 +30,7 @@ export async function onRequest(ctx) {
       case 'DELETE /posts/:': return deletePost(env, W, me, p1);
       case 'POST /posts/:/comments': return addComment(env, W, me, p1, await body(request));
       case 'POST /posts/:/media': return uploadMedia(env, W, p1, request);
+      case 'POST /posts/:/order': return orderMedia(env, W, p1, await body(request));
       case 'DELETE /media/:': return deleteMedia(env, W, p1);
       case 'POST /highlights/:/image': return uploadHighlight(env, W, p1, request);
       case 'GET /tasks': return listTasks(env, W);
@@ -127,7 +128,7 @@ async function listPosts(env, W, cid) {
   const c = await clientOf(env, W, cid);
   if (!c) return fail(404, 'Cliente no encontrado');
   const posts = (await env.DB.prepare('SELECT * FROM posts WHERE client_id=? ORDER BY number DESC').bind(cid).all()).results;
-  const media = (await env.DB.prepare('SELECT pm.* FROM post_media pm JOIN posts p ON p.id=pm.post_id WHERE p.client_id=?').bind(cid).all()).results;
+  const media = (await env.DB.prepare('SELECT pm.* FROM post_media pm JOIN posts p ON p.id=pm.post_id WHERE p.client_id=? ORDER BY pm.position').bind(cid).all()).results;
   const counts = (await env.DB.prepare('SELECT post_id, count(*) n FROM comments WHERE post_id IN (SELECT id FROM posts WHERE client_id=?) GROUP BY post_id').bind(cid).all()).results;
   const cm = Object.fromEntries(counts.map((r) => [r.post_id, r.n]));
   return json(posts.map((p) => shapePost(p, media, cm[p.id] || 0)));
@@ -149,7 +150,7 @@ async function createPost(env, W, me, cid, b) {
 async function getPost(env, W, pid) {
   const p = await postOf(env, W, pid);
   if (!p) return fail(404, 'Publicación no encontrada');
-  const media = (await env.DB.prepare('SELECT * FROM post_media WHERE post_id=?').bind(pid).all()).results;
+  const media = (await env.DB.prepare('SELECT * FROM post_media WHERE post_id=? ORDER BY position').bind(pid).all()).results;
   const comments = (await env.DB.prepare('SELECT id, author_type, author_id, author_name, body, to_client, created_at FROM comments WHERE post_id=? ORDER BY created_at').bind(pid).all()).results;
   const history = (await env.DB.prepare('SELECT actor, text, created_at FROM activity WHERE post_id=? ORDER BY created_at DESC LIMIT 30').bind(pid).all()).results;
   return json({ ...shapePost(p, media, comments.length), comments, history });
@@ -198,6 +199,16 @@ async function uploadMedia(env, W, pid, request) {
     await env.DB.prepare('INSERT INTO post_media (id, post_id, r2_key, mime, position) VALUES (?,?,?,?,?)').bind(id('mf_'), pid, key, mime, n).run();
   }
   await env.DB.prepare("UPDATE posts SET updated_at=datetime('now') WHERE id=?").bind(pid).run();
+  return getPost(env, W, pid);
+}
+
+async function orderMedia(env, W, pid, b) {
+  const p = await postOf(env, W, pid);
+  if (!p) return fail(404, 'Publicación no encontrada');
+  const ids = Array.isArray(b.ids) ? b.ids.map(String) : [];
+  const cur = (await env.DB.prepare('SELECT id FROM post_media WHERE post_id=?').bind(pid).all()).results.map((r) => r.id);
+  if (ids.length !== cur.length || !ids.every((x) => cur.includes(x))) return fail(400, 'El orden no coincide con el material de la publicación');
+  await env.DB.batch(ids.map((mid, i) => env.DB.prepare('UPDATE post_media SET position=?, is_cover=? WHERE id=? AND post_id=?').bind(i + 1, i === 0 ? 1 : 0, mid, pid)));
   return getPost(env, W, pid);
 }
 

@@ -30,7 +30,7 @@ async function view(env, req) {
   ).bind(req.client_id, req.period_end).all()).results;
   const ids = posts.map((p) => p.id);
   const media = ids.length
-    ? (await env.DB.prepare(`SELECT * FROM post_media WHERE post_id IN (${ids.map(() => '?').join(',')}) ORDER BY is_cover DESC, position`).bind(...ids).all()).results
+    ? (await env.DB.prepare(`SELECT * FROM post_media WHERE post_id IN (${ids.map(() => '?').join(',')}) ORDER BY position`).bind(...ids).all()).results
     : [];
   const thread = ids.length
     ? (await env.DB.prepare(`SELECT post_id, author_type, author_name, body, created_at FROM comments WHERE post_id IN (${ids.map(() => '?').join(',')}) AND (author_type='client' OR to_client=1) ORDER BY created_at`).bind(...ids).all()).results

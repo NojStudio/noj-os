@@ -14,6 +14,12 @@ const ICON = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.5 3.5 5.2"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  play: '<path d="M7 4.5v15l12-7.5z"/>',
+  pano: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M9 6v12M15 6v12"/>',
+  left: '<path d="M15 18l-6-6 6-6"/>', right: '<path d="M9 18l6-6-6-6"/>',
+  heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
+  chat: '<path d="M21 11.5a8.4 8.4 0 0 1-12.6 7.3L3 21l2.2-5.4A8.4 8.4 0 1 1 21 11.5z"/>',
+  save: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   bot: '<rect x="4" y="8" width="16" height="12" rx="1"/><path d="M12 4v4M9 13v2M15 13v2M2 14h2M20 14h2"/>',
   up: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
@@ -255,7 +261,7 @@ function renderClient() {
     <nav class="tabs">${tabs.map(([k, l]) => `<a href="#/c/${c.id}/${k}" class="${app.ctab === k ? 'on' : ''}">${l}</a>`).join('')}</nav></div>`;
   let body = '';
   if (app.ctab === 'parrilla') body = parrilla();
-  if (app.ctab === 'pendientes') body = `<div class="page">${agentOn('seguimiento') ? `<section class="card"><div class="agent-inline between"><span class="row" style="gap:14px;flex-wrap:nowrap"><span class="mono-mark">Se</span><span><b style="font-weight:500">Seguimiento de pendientes</b><br><span class="mu" style="font-size:13px">Redacta el recordatorio para ${esc(c.approver_name || 'el cliente')} con todo lo que espera su respuesta.</span></span></span><button class="btn sm agent" data-act="nudge">${ic('pen')}Redactar recordatorio</button></div>${app.nudge ? `<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:10px"><textarea id="nudge" rows="6" class="copy">${esc(app.nudge)}</textarea><div class="row"><button class="btn sm pri" data-act="copy-nudge">${ic('link')}Copiar mensaje</button><span class="dim">Pégalo en WhatsApp o correo</span></div></div>` : ''}</section>` : ''}${taskForm(c.id)}<section class="card">${taskGroups(app.tasks.filter((t) => t.client_id === c.id && t.status !== 'cerrado'), false)}</section></div>`;
+  if (app.ctab === 'pendientes') body = `<div class="page">${agentOn('seguimiento') ? `<section class="card"><div class="agent-inline between"><span class="row" style="gap:14px;flex-wrap:nowrap"><span class="mono-mark">Se</span><span><b style="font-weight:500">Seguimiento de pendientes</b><br><span class="mu" style="font-size:13px">Redacta el recordatorio para ${esc(c.approver_name || 'el cliente')} con todo lo que espera su respuesta.</span></span></span><button class="btn sm agentb" data-act="nudge">${ic('pen')}Redactar recordatorio</button></div>${app.nudge ? `<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:10px"><textarea id="nudge" rows="6" class="copy">${esc(app.nudge)}</textarea><div class="row"><button class="btn sm pri" data-act="copy-nudge">${ic('link')}Copiar mensaje</button><span class="dim">Pégalo en WhatsApp o correo</span></div></div>` : ''}</section>` : ''}${taskForm(c.id)}<section class="card">${taskGroups(app.tasks.filter((t) => t.client_id === c.id && t.status !== 'cerrado'), false)}</section></div>`;
   if (app.ctab === 'envios') body = envios();
   if (app.ctab === 'ficha') body = ficha();
   $('#root').innerHTML = shell(head + body, `<a href="#/hoy">Clientes</a><span class="sep">/</span><b>${esc(c.name)}</b>`);
@@ -293,7 +299,7 @@ function parrilla() {
         <div class="seg" role="group" aria-label="Periodo">${['semana', 'quincena', 'mes'].map((t) => `<button class="${app.per.type === t ? 'on' : ''}" data-act="per-type" data-v="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
         <div class="range"><button data-act="per-shift" data-v="-1" aria-label="Periodo anterior">‹</button><span>${periodLabel(app.per.type, p)}</span><button data-act="per-shift" data-v="1" aria-label="Periodo siguiente">›</button></div>
       </div>
-      <div class="progress"><span><b>${ready}</b> de ${inP.length} listas para enviar</span><span class="bar" title="${order.filter(cnt).map((s) => cnt(s) + ' ' + ST[s].toLowerCase()).join(' · ')}">${bar}</span></div>
+      <div class="row" style="gap:16px"><button class="btn sm" data-act="present">${ic('play')}Presentar</button><div class="progress"><span><b>${ready}</b> de ${inP.length} listas para enviar</span><span class="bar" title="${order.filter(cnt).map((s) => cnt(s) + ' ' + ST[s].toLowerCase()).join(' · ')}">${bar}</span></div></div>
     </div>
     <section class="cal" aria-label="Calendario del periodo">${cal}</section>
     <div class="mswitch seg" role="group" aria-label="Vista"><button class="${app.mview !== 'prev' ? 'on' : ''}" data-act="mview" data-v="edit">Publicación</button><button class="${app.mview === 'prev' ? 'on' : ''}" data-act="mview" data-v="prev">Vista previa</button></div>
@@ -319,8 +325,9 @@ function inspector() {
   const tabs = [['contenido', 'Contenido'], ['comentarios', 'Comentarios' + (d.comments.length ? `<span class="ct">${d.comments.length}</span>` : '')], ['historial', 'Historial']];
   let body = '';
   if (app.ptab === 'contenido') body = `<div class="ibody">
-    <div class="media" id="drop">${d.media.map((m) => `<div class="m">${m.video ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`}<button data-act="del-media" data-id="${m.id}" aria-label="Quitar archivo">${ic('x')}</button></div>`).join('')}
-      <label class="up" for="file">${ic('up')}<span>Subir material</span><span class="dim" style="font-size:11px">Foto o video · arrastra aquí</span></label><input id="file" type="file" accept="image/*,video/*" multiple class="sr"></div>
+    <div class="media" id="drop">${d.media.map((m, i) => `<div class="m">${m.video ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`}<span class="pos">${i + 1}</span><button data-act="del-media" data-id="${m.id}" aria-label="Quitar archivo">${ic('x')}</button>${d.media.length > 1 ? `<span class="mv">${i ? `<button data-act="mv-media" data-id="${m.id}" data-dir="-1" aria-label="Mover a la izquierda">${ic('left')}</button>` : ''}${i < d.media.length - 1 ? `<button data-act="mv-media" data-id="${m.id}" data-dir="1" aria-label="Mover a la derecha">${ic('right')}</button>` : ''}</span>` : ''}</div>`).join('')}
+      <label class="up" for="file">${ic('up')}<span>Subir material</span><span class="dim" style="font-size:11px">Foto o video · arrastra aquí</span></label><input id="file" type="file" accept="image/*,video/*" multiple class="sr">
+      <button class="up pano" data-act="pano">${ic('pano')}<span>Panorámica a carrusel</span><span class="dim" style="font-size:11px">Parte una foto horizontal</span></button></div>
     <div class="fields">
       <label>Publica<input type="date" data-field="publish_on" value="${d.publish_on || ''}"></label>
       <label>Formato<select data-field="kind">${Object.entries(KIND).map(([k, v]) => `<option value="${k}" ${k === d.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
@@ -330,7 +337,7 @@ function inspector() {
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="lbl"><label for="copy">Copy</label><span class="dim"><span id="cl">${d.copy.length}</span> / 2,200</span></div>
       <textarea id="copy" class="copy" data-field="copy" rows="5" placeholder="Escribe el texto de la publicación…">${esc(d.copy)}</textarea>
-      ${agentOn('copy') ? `<div class="row"><button class="btn sm agent" data-act="ai">${ic('pen')}Proponer copys</button><span class="dim" style="font-size:12px">Redactor de copys · usa el tono de la ficha de marca</span></div>` : ''}
+      ${agentOn('copy') ? `<div class="row"><button class="btn sm agentb" data-act="ai">${ic('pen')}Proponer copys</button><span class="dim" style="font-size:12px">Redactor de copys · usa el tono de la ficha de marca</span></div>` : ''}
       ${app.ai ? `<div class="ai">${app.ai.map((o, i) => `<button data-act="ai-use" data-i="${i}">${esc(o)}</button>`).join('')}</div>` : ''}
     </div>
     <label style="display:flex;flex-direction:column;gap:8px"><span class="lbl">Notas internas</span><textarea data-field="notes" rows="2" placeholder="Solo las ve el equipo">${esc(d.notes)}</textarea></label>
@@ -339,7 +346,7 @@ function inspector() {
     ${app.reply ? `<div class="ai">${app.reply.options.map((o, i) => `<button data-act="reply-use" data-i="${i}">${esc(o)}</button>`).join('')}${app.reply.fix ? `<div class="note"><b style="font-weight:500">Sugerencia para el equipo:</b> ${esc(app.reply.fix)}</div>` : ''}</div>` : ''}
     <form data-form="comment" style="display:flex;flex-direction:column;gap:8px"><textarea name="body" id="cbody" rows="2" placeholder="Comenta para el equipo…" required></textarea>
       <div class="between"><label class="row mu" style="font-size:12px;gap:6px;cursor:pointer"><input type="checkbox" name="to_client" id="tocl" style="width:auto"> Visible para el cliente en su link</label>
-      <div class="row">${agentOn('respuestas') && d.comments.some((k) => k.author_type === 'client') ? `<button type="button" class="btn sm agent" data-act="reply-ai">${ic('pen')}Proponer respuesta</button>` : ''}<button class="btn sm" type="submit">Comentar</button></div></div></form></div>`;
+      <div class="row">${agentOn('respuestas') && d.comments.some((k) => k.author_type === 'client') ? `<button type="button" class="btn sm agentb" data-act="reply-ai">${ic('pen')}Proponer respuesta</button>` : ''}<button class="btn sm" type="submit">Comentar</button></div></div></form></div>`;
   if (app.ptab === 'historial') body = `<div class="ibody hist">${d.history.map((h) => `<div><span>${esc(ago(h.created_at))}</span><span style="color:var(--ink-2)">${esc(h.text)}</span></div>`).join('') || '<span class="mu">Sin movimientos.</span>'}</div>`;
   const fl = flow.map((s, i) => `<button class="${i < ci ? 'done' : ''} ${i === ci ? 'cur' : ''}" style="--c:${stc(d.status === 'cambio' && i === ci ? 'cambio' : s)}" data-act="status" data-v="${s}" aria-pressed="${i === ci}"><span class="o"></span>${d.status === 'cambio' && i === ci ? 'Cambio pedido' : ST[s]}</button>`).join('');
   return `<div class="ihead">
@@ -453,6 +460,9 @@ document.addEventListener('click', async (e) => {
     else if (a === 'ptab') { app.ptab = t.dataset.v; renderClient(); }
     else if (a === 'status') { await savePost({ status: t.dataset.v }, true); }
     else if (a === 'new-post') { const date = t.dataset.date || null; const d = await api('/clients/' + app.client.id + '/posts', { method: 'POST', body: { title: 'Nueva publicación', publish_on: date } }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = d.id; app.detail = d; app.ptab = 'contenido'; renderClient(); $('.ihead input.title') && $('.ihead input.title').select(); }
+    else if (a === 'present') openPresent();
+    else if (a === 'pano') openPano();
+    else if (a === 'mv-media') { const ids = app.detail.media.map((m) => m.id), i = ids.indexOf(t.dataset.id), j = i + +t.dataset.dir; [ids[i], ids[j]] = [ids[j], ids[i]]; app.detail = await api('/posts/' + app.sel + '/order', { method: 'POST', body: { ids } }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); }
     else if (a === 'del-post') { const d = app.detail; if (await askConfirm({ title: `¿Borrar P${d.number} · ${d.title}?`, text: 'Se borran también su material, comentarios y lo que el cliente haya respondido sobre ella. Esto no se puede deshacer.' })) { await api('/posts/' + d.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = null; app.detail = null; const p = period(app.per.type, app.per.anchor); const first = app.posts.filter((x) => x.publish_on >= p.start && x.publish_on <= p.end).sort((x, y) => x.number - y.number)[0] || app.posts[0]; if (first) { app.sel = first.id; app.detail = await api('/posts/' + first.id); } renderClient(); toast('Publicación borrada'); } }
     else if (a === 'del-media') { if (await askConfirm({ title: '¿Quitar este archivo?', text: 'Se quita de la publicación y ya no lo verá el cliente.', ok: 'Sí, quitar' })) { app.detail = await api('/media/' + t.dataset.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); } }
     else if (a === 'ai') { t.disabled = true; t.textContent = 'Pensando…'; const r = await api('/agents/copy/run', { method: 'POST', body: { post_id: app.sel } }); app.ai = r.options; renderClient(); }
@@ -499,5 +509,115 @@ document.addEventListener('submit', async (e) => {
   } catch (err) { toast(err.message); }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#modal') && $('#modal').remove(); $('#drawer') && $('#drawer').classList.remove('open'); } });
+
+// ================= MODO PRESENTACIÓN =================
+function openPresent() {
+  const c = app.client, p = period(app.per.type, app.per.anchor);
+  const grid = app.posts.filter((x) => x.status === 'pub' || (x.publish_on && x.publish_on <= p.end));
+  let cur = null;
+  const el = document.createElement('div'); el.className = 'present';
+  const handle = esc(c.handle || c.name);
+  const profile = () => `<div class="igbar">${handle}${ic('bell')}</div>
+    <div class="igprof">${c.avatar ? `<img class="av" src="${esc(c.avatar)}" alt="">` : '<span class="av"></span>'}<div class="igstats"><span><b>${grid.length}</b>publicaciones</span><span><b>—</b>seguidores</span><span><b>—</b>seguidos</span></div></div>
+    <div class="igbio"><b>${esc(c.name)}</b>${c.bio ? '<br>' + esc(c.bio) : ''}</div>
+    ${c.highlights.length ? `<div class="ighl">${c.highlights.map((h) => `<span>${h.image ? `<img src="${esc(h.image)}" alt="">` : '<i></i>'}${esc(h.label)}</span>`).join('')}</div>` : ''}
+    <div class="iggrid">${grid.map((x) => { const m = x.media[0]; return `<button class="tile" data-p="open" data-id="${x.id}" aria-label="${esc(x.title)}">${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`) : `<span class="noimg">${esc(x.title)}</span>`}${x.kind === 'reel' ? REEL : x.kind === 'carr' || x.media.length > 1 ? CARR : ''}</button>`; }).join('')}</div>`;
+  const post = (x) => `<div class="pv-top"><button data-p="back" aria-label="Volver al perfil">${ic('left')}</button><span>Publicaciones</span><i></i></div>
+    <div class="pv-h">${c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : '<span></span>'}<div><b>${handle}</b><small>${esc(x.location || '')}</small></div></div>
+    <div class="pv-car"><div class="pv-slides">${x.media.length ? x.media.map((m) => m.video ? `<video src="${esc(m.url)}" controls playsinline autoplay muted loop></video>` : `<img src="${esc(m.url)}" alt="">`).join('') : '<div class="pv-empty">Material en producción</div>'}</div>${x.media.length > 1 ? `<span class="pv-cnt">1/${x.media.length}</span><div class="pv-dots">${x.media.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</div>
+    <div class="pv-acts">${ic('heart')}${ic('chat')}${ic('send')}<span style="flex:1"></span>${ic('save')}</div>
+    <div class="pv-cap"><b>${handle}</b> ${esc(x.copy) || '<span style="opacity:.5">Copy en proceso</span>'}</div>
+    <div class="pv-date">${x.date ? esc(x.date) : ''}</div>`;
+  const draw = () => {
+    const sc = el.querySelector('.scroll');
+    sc.innerHTML = cur ? post(grid.find((x) => x.id === cur)) : profile(); sc.scrollTop = 0;
+    const sl = el.querySelector('.pv-slides');
+    if (sl) sl.onscroll = () => { const k = Math.round(sl.scrollLeft / sl.clientWidth); const cn = el.querySelector('.pv-cnt'); if (cn) cn.textContent = `${k + 1}/${sl.children.length}`; el.querySelectorAll('.pv-dots i').forEach((d, j) => d.classList.toggle('on', j === k)); };
+    el.querySelector('.pnav.l').style.visibility = cur && grid.findIndex((x) => x.id === cur) > 0 ? 'visible' : 'hidden';
+    el.querySelector('.pnav.r').style.visibility = cur && grid.findIndex((x) => x.id === cur) < grid.length - 1 ? 'visible' : 'hidden';
+  };
+  el.innerHTML = `<div class="pbar"><div><b>${esc(c.name)}</b><span>Parrilla · ${periodLabel(app.per.type, p)}</span></div><button class="btn sm" data-p="exit">${ic('x')}Salir</button></div>
+    <div class="pstage"><button class="pnav l" data-p="prev" aria-label="Anterior">${ic('left')}</button><div class="phone pphone"><div class="notch"><i></i></div><div class="scroll"></div></div><button class="pnav r" data-p="next" aria-label="Siguiente">${ic('right')}</button></div>`;
+  const step = (d) => { const i = grid.findIndex((x) => x.id === cur) + d; if (grid[i]) { cur = grid[i].id; draw(); } };
+  const close = () => { el.remove(); document.removeEventListener('keydown', key, true); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); };
+  const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); cur ? (cur = null, draw()) : close(); } else if (cur && e.key === 'ArrowRight') step(1); else if (cur && e.key === 'ArrowLeft') step(-1); };
+  el.addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const v = b.dataset.p;
+    if (v === 'exit') close(); else if (v === 'back') { cur = null; draw(); } else if (v === 'open') { cur = b.dataset.id; draw(); } else if (v === 'prev') step(-1); else if (v === 'next') step(1); });
+  document.addEventListener('keydown', key, true);
+  document.body.appendChild(el); draw();
+  if (el.requestFullscreen && matchMedia('(min-width:900px)').matches) el.requestFullscreen().catch(() => {});
+}
+
+// ================= PANORÁMICA A CARRUSEL =================
+function openPano() {
+  const d = app.detail; if (!d) return;
+  const S = { img: null, n: 3, r: [4, 5], zoom: 1, ox: 0, oy: 0, replace: false };
+  const el = document.createElement('div'); el.className = 'scrim'; el.id = 'pano';
+  const imgs = d.media.filter((m) => !m.video);
+  el.innerHTML = `<div class="modal wide" role="dialog" aria-label="Panorámica a carrusel">
+    <div class="mh"><div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow">P${d.number} · ${esc(d.title)}</span><div class="h2">Panorámica a carrusel</div></div><button class="iconbtn" data-x="close" aria-label="Cerrar">${ic('x')}</button></div>
+    <div class="mb">
+      <div class="row pano-src"><label class="btn sm">${ic('up')}Subir foto<input type="file" accept="image/*" class="sr" id="panofile"></label>${imgs.map((m) => `<button class="pthumb" data-x="use" data-url="${esc(m.url)}"><img src="${esc(m.url)}" alt=""></button>`).join('')}<span class="dim" style="font-size:12.5px">${imgs.length ? 'o usa una de esta publicación' : ''}</span></div>
+      <div class="pano-stage" id="pstage"><canvas id="pcv"></canvas><div class="pano-hint">Sube o elige una foto horizontal</div></div>
+      <div class="pano-ctrl">
+        <label>Fotos<div class="seg" id="pn">${[2, 3, 4, 5, 6].map((n) => `<button data-n="${n}" class="${n === 3 ? 'on' : ''}">${n}</button>`).join('')}</div></label>
+        <label>Formato<div class="seg" id="pr"><button data-r="4,5" class="on">4:5 vertical</button><button data-r="1,1">1:1 cuadrada</button></div></label>
+        <label style="flex:1;min-width:180px">Zoom<input type="range" id="pz" min="1" max="3" step="0.01" value="1"></label>
+      </div>
+      <label class="row mu" style="gap:8px;cursor:pointer;font-size:13.5px"><input type="checkbox" id="prep" style="width:auto"> Reemplazar el material actual de la publicación</label>
+      <span class="dim" style="font-size:12.5px">Arrastra la foto para acomodar el encuadre. Las líneas marcan dónde se corta cada foto del carrusel (1080 px de ancho cada una).</span>
+    </div>
+    <div class="mf"><span class="dim" id="pinfo"></span><div class="row"><button class="btn" data-x="close">Cancelar</button><button class="btn pri" data-x="make" disabled>Crear fotos</button></div></div></div>`;
+  document.body.appendChild(el);
+  const cv = el.querySelector('#pcv'), ctx = cv.getContext('2d'), stage = el.querySelector('#pstage');
+  const dims = () => { const W = stage.clientWidth, H = W * S.r[1] / (S.r[0] * S.n); return { W, H: Math.min(H, 520) }; };
+  const cover = (W, H) => Math.max(W / S.img.width, H / S.img.height);
+  const clamp = (W, H) => { const sc = cover(W, H) * S.zoom, iw = S.img.width * sc, ih = S.img.height * sc; S.ox = Math.min(0, Math.max(W - iw, S.ox)); S.oy = Math.min(0, Math.max(H - ih, S.oy)); return sc; };
+  const draw = () => {
+    if (!S.img) return; let { W, H } = dims(); const w0 = H * S.r[0] * S.n / S.r[1]; if (w0 < W) W = w0;
+    cv.width = W * 2; cv.height = H * 2; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    const sc = clamp(W, H); ctx.setTransform(2, 0, 0, 2, 0, 0); ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(S.img, S.ox, S.oy, S.img.width * sc, S.img.height * sc);
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]);
+    for (let i = 1; i < S.n; i++) { const x = W * i / S.n; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.font = '600 12px Inter, sans-serif';
+    for (let i = 0; i < S.n; i++) { const x = W * i / S.n + 8; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.roundRect(x, 8, 34, 20, 10); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(`${i + 1}/${S.n}`, x + 7, 22); }
+    S.view = { W, H, sc };
+    el.querySelector('#pinfo').textContent = `${S.n} fotos de 1080 × ${Math.round(1080 * S.r[1] / S.r[0])} px`;
+    el.querySelector('[data-x="make"]').textContent = `Crear ${S.n} fotos`;
+  };
+  const load = (src) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { S.img = im; S.zoom = 1; el.querySelector('#pz').value = 1; S.ox = -1e9; S.oy = -1e9; const { W, H } = dims(); const sc = cover(W, H); S.ox = (W - im.width * sc) / 2; S.oy = (H - im.height * sc) / 2; stage.classList.add('on'); el.querySelector('[data-x="make"]').disabled = false; draw(); }; im.src = src; };
+  el.querySelector('#panofile').onchange = (e) => { const f = e.target.files[0]; if (f) load(URL.createObjectURL(f)); };
+  let drag = null;
+  cv.onpointerdown = (e) => { if (!S.img) return; drag = { x: e.clientX, y: e.clientY, ox: S.ox, oy: S.oy }; cv.setPointerCapture(e.pointerId); };
+  cv.onpointermove = (e) => { if (!drag) return; S.ox = drag.ox + e.clientX - drag.x; S.oy = drag.oy + e.clientY - drag.y; draw(); };
+  cv.onpointerup = () => { drag = null; };
+  el.querySelector('#pz').oninput = (e) => { if (!S.img) return; const { W, H } = S.view; const cx = W / 2 - S.ox, cy = H / 2 - S.oy, before = S.view.sc; S.zoom = +e.target.value; const after = cover(W, H) * S.zoom; S.ox = W / 2 - cx * after / before; S.oy = H / 2 - cy * after / before; draw(); };
+  const close = () => { el.remove(); window.removeEventListener('resize', draw); };
+  window.addEventListener('resize', draw);
+  el.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-x],[data-n],[data-r]'); if (!b) { if (e.target === el) close(); return; }
+    if (b.dataset.n) { S.n = +b.dataset.n; el.querySelectorAll('#pn button').forEach((x) => x.classList.toggle('on', x === b)); draw(); }
+    else if (b.dataset.r) { S.r = b.dataset.r.split(',').map(Number); el.querySelectorAll('#pr button').forEach((x) => x.classList.toggle('on', x === b)); draw(); }
+    else if (b.dataset.x === 'use') load(b.dataset.url);
+    else if (b.dataset.x === 'close') close();
+    else if (b.dataset.x === 'make') {
+      b.disabled = true; b.textContent = 'Creando…';
+      const { W, sc } = S.view, ow = 1080, oh = Math.round(1080 * S.r[1] / S.r[0]), f = ow * S.n / W, files = [];
+      for (let i = 0; i < S.n; i++) {
+        const c2 = document.createElement('canvas'); c2.width = ow; c2.height = oh; const x2 = c2.getContext('2d');
+        x2.imageSmoothingQuality = 'high'; x2.setTransform(f, 0, 0, f, -i * ow, 0); x2.drawImage(S.img, S.ox, S.oy, S.img.width * sc, S.img.height * sc);
+        const blob = await new Promise((r) => c2.toBlob(r, 'image/jpeg', 0.92));
+        files.push(new File([blob], `panoramica_${i + 1}.jpg`, { type: 'image/jpeg' }));
+      }
+      try {
+        if (el.querySelector('#prep').checked) for (const m of app.detail.media) await api('/media/' + m.id, { method: 'DELETE' });
+        const fd = new FormData(); files.forEach((x) => fd.append('file', x));
+        app.detail = await api('/posts/' + app.sel + '/media', { method: 'POST', body: fd });
+        app.posts = await api('/clients/' + app.client.id + '/posts'); close(); renderClient(); toast(`${S.n} fotos agregadas al carrusel`);
+      } catch (err) { toast(err.message); b.disabled = false; b.textContent = `Crear ${S.n} fotos`; }
+    }
+  });
+}
 
 boot();
