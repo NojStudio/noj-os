@@ -232,7 +232,7 @@ async function loadAgentsPage(cached) {
   $('#root').innerHTML = shell(inner, '<b>Agentes</b>');
 }
 
-const MARKS = { copy: 'Co', respuestas: 'Re', seguimiento: 'Se', fechas: 'Fe', reporte: 'Rm', whatsapp: 'Wa', publicador: 'Pu', propuestas: 'Pr', stock: 'St' };
+const MARKS = { campana: 'Ca', copy: 'Co', respuestas: 'Re', seguimiento: 'Se', fechas: 'Fe', reporte: 'Rm', whatsapp: 'Wa', publicador: 'Pu', propuestas: 'Pr', stock: 'St' };
 const mark = (a) => esc(MARKS[a.id] || a.name.slice(0, 2));
 
 // ================= CLIENTE =================
@@ -257,7 +257,7 @@ function renderClient() {
   const tabs = [['parrilla', 'Parrilla'], ['pendientes', 'Pendientes'], ['envios', 'Envíos'], ['ficha', 'Ficha de marca']];
   const head = `<div class="chead">
     <div class="between"><div class="who">${c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : '<span class="ph"></span>'}<div><h1 class="h1">${esc(c.name)}</h1><div class="meta">${esc([c.handle && '@' + c.handle, c.services, owner && 'Responsable: ' + owner.name].filter(Boolean).join('  ·  '))}</div></div></div>
-    ${app.ctab === 'parrilla' ? `<div class="row"><button class="btn" data-act="new-post">${ic('plus')}Publicación</button><button class="btn pri" data-act="open-send">${ic('send')}Enviar a aprobación</button></div>` : ''}</div>
+    ${app.ctab === 'parrilla' ? `<div class="row">${agentOn('campana') ? `<button class="btn" data-act="campaign">${ic('grid')}Planear campaña</button>` : ''}<button class="btn" data-act="new-post">${ic('plus')}Publicación</button><button class="btn pri" data-act="open-send">${ic('send')}Enviar a aprobación</button></div>` : ''}</div>
     <nav class="tabs">${tabs.map(([k, l]) => `<a href="#/c/${c.id}/${k}" class="${app.ctab === k ? 'on' : ''}">${l}</a>`).join('')}</nav></div>`;
   let body = '';
   if (app.ctab === 'parrilla') body = parrilla();
@@ -285,14 +285,14 @@ function parrilla() {
       <span class="hd"><span class="wd">${WD[dd.getUTCDay()]}</span><span class="n">${dd.getUTCDate()}</span></span>
       ${post ? `<span class="chip">${post.media[0] && !post.media[0].video ? `<img src="${esc(post.media[0].url)}" alt="" loading="lazy">` : `<span class="noimg">${esc(post.title)}</span>`}<span class="lb"><i style="background:${stc(post.status)}"></i>P${post.number}<span class="k"> · ${KIND[post.kind]}</span></span></span>` : '<span class="add">+</span>'}</button>`; }).join('');
   // grid del perfil: lo publicado + lo programado hasta el fin del periodo
-  const grid = app.posts.filter((x) => x.status === 'pub' || (x.publish_on && x.publish_on <= p.end));
+  const fd = feed(p), grid = fd.list;
   const c = app.client;
   const phone = `<div class="phone ${app.clean ? 'clean' : ''}"><div class="notch"><i></i></div><div class="scroll">
     <div class="igbar">${esc(c.handle || c.name)}<svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px">${ICON.bell}</svg></div>
-    <div class="igprof">${c.avatar ? `<img class="av" src="${esc(c.avatar)}" alt="">` : '<span class="av" style="display:block"></span>'}<div class="igstats"><span><b>${grid.length}</b>publicaciones</span><span><b>—</b>seguidores</span><span><b>—</b>seguidos</span></div></div>
+    <div class="igprof">${c.avatar ? `<img class="av" src="${esc(c.avatar)}" alt="">` : '<span class="av" style="display:block"></span>'}<div class="igstats"><span><b>${grid.filter((x) => !x._next).length}</b>publicaciones</span><span><b>—</b>seguidores</span><span><b>—</b>seguidos</span></div></div>
     <div class="igbio"><b>${esc(c.name)}</b>${c.bio ? '<br>' + esc(c.bio) : ''}</div>
     ${c.highlights.length ? `<div class="ighl">${c.highlights.map((h) => `<span>${h.image ? `<img src="${esc(h.image)}" alt="">` : '<i></i>'}${esc(h.label)}</span>`).join('')}</div>` : ''}
-    <div class="iggrid">${grid.map(tile).join('')}</div></div></div>`;
+    <div class="iggrid">${phTiles(fd.ph)}${grid.map(tile).join('')}</div></div></div>`;
   return `<div class="page">
     <div class="toolbar">
       <div class="row">
@@ -309,9 +309,18 @@ function parrilla() {
     </div></div>`;
 }
 
+// Feed con filas completas: si faltan, se completan con las siguientes publicaciones.
+function feed(p) {
+  const base = app.posts.filter((x) => x.status === 'pub' || (x.publish_on && x.publish_on <= p.end));
+  const need = (3 - (base.length % 3)) % 3;
+  const next = app.posts.filter((x) => x.status !== 'pub' && x.publish_on && x.publish_on > p.end).sort((a, b) => a.publish_on.localeCompare(b.publish_on)).slice(0, need).reverse().map((x) => ({ ...x, _next: true }));
+  return { list: [...next, ...base], ph: need - next.length };
+}
+const phTiles = (n) => '<span class="tile ph"><span class="noimg">Próxima</span></span>'.repeat(Math.max(0, n));
+
 function tile(x) {
   const m = x.media[0];
-  return `<button class="tile ${x.status === 'pub' ? 'pub' : ''} ${x.id === app.sel ? 'sel' : ''}" data-act="pick" data-id="${x.id}" aria-label="P${x.number} · ${esc(x.title)} · ${ST[x.status]}">
+  return `<button class="tile ${x.status === 'pub' ? 'pub' : ''} ${x._next ? 'next' : ''} ${x.id === app.sel ? 'sel' : ''}" data-act="pick" data-id="${x.id}" aria-label="P${x.number} · ${esc(x.title)} · ${ST[x.status]}">
     ${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy">`) : `<span class="noimg">P${x.number}<br>${esc(x.title)}</span>`}
     ${x.kind === 'reel' ? REEL : x.kind === 'carr' ? CARR : ''}
     <span class="pn">P${x.number}</span><span class="st" style="color:${stc(x.status)}"><i></i>${ST[x.status]}</span></button>`;
@@ -325,9 +334,9 @@ function inspector() {
   const tabs = [['contenido', 'Contenido'], ['comentarios', 'Comentarios' + (d.comments.length ? `<span class="ct">${d.comments.length}</span>` : '')], ['historial', 'Historial']];
   let body = '';
   if (app.ptab === 'contenido') body = `<div class="ibody">
+    <div class="between mtools"><span class="lbl">Material${d.media.length ? `<span class="dim" style="font-weight:500;margin-left:8px">${d.media.length} archivo${d.media.length === 1 ? '' : 's'}</span>` : ''}</span><div class="row"><label class="btn sm" for="file">${ic('up')}Subir</label><button class="btn sm" data-act="pano">${ic('pano')}Panorámica a carrusel</button></div></div>
     <div class="media" id="drop">${d.media.map((m, i) => `<div class="m">${m.video ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`}<span class="pos">${i + 1}</span><button data-act="del-media" data-id="${m.id}" aria-label="Quitar archivo">${ic('x')}</button>${d.media.length > 1 ? `<span class="mv">${i ? `<button data-act="mv-media" data-id="${m.id}" data-dir="-1" aria-label="Mover a la izquierda">${ic('left')}</button>` : ''}${i < d.media.length - 1 ? `<button data-act="mv-media" data-id="${m.id}" data-dir="1" aria-label="Mover a la derecha">${ic('right')}</button>` : ''}</span>` : ''}</div>`).join('')}
-      <label class="up" for="file">${ic('up')}<span>Subir material</span><span class="dim" style="font-size:11px">Foto o video · arrastra aquí</span></label><input id="file" type="file" accept="image/*,video/*" multiple class="sr">
-      <button class="up pano" data-act="pano">${ic('pano')}<span>Panorámica a carrusel</span><span class="dim" style="font-size:11px">Parte una foto horizontal</span></button></div>
+      <label class="up" for="file">${ic('up')}<span>Subir material</span><span class="dim" style="font-size:11px">Foto o video · arrastra aquí</span></label><input id="file" type="file" accept="image/*,video/*" multiple class="sr"></div>
     <div class="fields">
       <label>Publica<input type="date" data-field="publish_on" value="${d.publish_on || ''}"></label>
       <label>Formato<select data-field="kind">${Object.entries(KIND).map(([k, v]) => `<option value="${k}" ${k === d.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
@@ -462,6 +471,7 @@ document.addEventListener('click', async (e) => {
     else if (a === 'new-post') { const date = t.dataset.date || null; const d = await api('/clients/' + app.client.id + '/posts', { method: 'POST', body: { title: 'Nueva publicación', publish_on: date } }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = d.id; app.detail = d; app.ptab = 'contenido'; renderClient(); $('.ihead input.title') && $('.ihead input.title').select(); }
     else if (a === 'present') openPresent();
     else if (a === 'pano') openPano();
+    else if (a === 'campaign') openCampaign();
     else if (a === 'mv-media') { const ids = app.detail.media.map((m) => m.id), i = ids.indexOf(t.dataset.id), j = i + +t.dataset.dir; [ids[i], ids[j]] = [ids[j], ids[i]]; app.detail = await api('/posts/' + app.sel + '/order', { method: 'POST', body: { ids } }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); }
     else if (a === 'del-post') { const d = app.detail; if (await askConfirm({ title: `¿Borrar P${d.number} · ${d.title}?`, text: 'Se borran también su material, comentarios y lo que el cliente haya respondido sobre ella. Esto no se puede deshacer.' })) { await api('/posts/' + d.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = null; app.detail = null; const p = period(app.per.type, app.per.anchor); const first = app.posts.filter((x) => x.publish_on >= p.start && x.publish_on <= p.end).sort((x, y) => x.number - y.number)[0] || app.posts[0]; if (first) { app.sel = first.id; app.detail = await api('/posts/' + first.id); } renderClient(); toast('Publicación borrada'); } }
     else if (a === 'del-media') { if (await askConfirm({ title: '¿Quitar este archivo?', text: 'Se quita de la publicación y ya no lo verá el cliente.', ok: 'Sí, quitar' })) { app.detail = await api('/media/' + t.dataset.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); } }
@@ -513,15 +523,15 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#moda
 // ================= MODO PRESENTACIÓN =================
 function openPresent() {
   const c = app.client, p = period(app.per.type, app.per.anchor);
-  const grid = app.posts.filter((x) => x.status === 'pub' || (x.publish_on && x.publish_on <= p.end));
+  const fd = feed(p), grid = fd.list;
   let cur = null;
   const el = document.createElement('div'); el.className = 'present';
   const handle = esc(c.handle || c.name);
   const profile = () => `<div class="igbar">${handle}${ic('bell')}</div>
-    <div class="igprof">${c.avatar ? `<img class="av" src="${esc(c.avatar)}" alt="">` : '<span class="av"></span>'}<div class="igstats"><span><b>${grid.length}</b>publicaciones</span><span><b>—</b>seguidores</span><span><b>—</b>seguidos</span></div></div>
+    <div class="igprof">${c.avatar ? `<img class="av" src="${esc(c.avatar)}" alt="">` : '<span class="av"></span>'}<div class="igstats"><span><b>${grid.filter((x) => !x._next).length}</b>publicaciones</span><span><b>—</b>seguidores</span><span><b>—</b>seguidos</span></div></div>
     <div class="igbio"><b>${esc(c.name)}</b>${c.bio ? '<br>' + esc(c.bio) : ''}</div>
     ${c.highlights.length ? `<div class="ighl">${c.highlights.map((h) => `<span>${h.image ? `<img src="${esc(h.image)}" alt="">` : '<i></i>'}${esc(h.label)}</span>`).join('')}</div>` : ''}
-    <div class="iggrid">${grid.map((x) => { const m = x.media[0]; return `<button class="tile" data-p="open" data-id="${x.id}" aria-label="${esc(x.title)}">${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`) : `<span class="noimg">${esc(x.title)}</span>`}${x.kind === 'reel' ? REEL : x.kind === 'carr' || x.media.length > 1 ? CARR : ''}</button>`; }).join('')}</div>`;
+    <div class="iggrid">${phTiles(fd.ph)}${grid.map((x) => { const m = x.media[0]; return `<button class="tile" data-p="open" data-id="${x.id}" aria-label="${esc(x.title)}">${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`) : `<span class="noimg">${esc(x.title)}</span>`}${x.kind === 'reel' ? REEL : x.kind === 'carr' || x.media.length > 1 ? CARR : ''}</button>`; }).join('')}</div>`;
   const post = (x) => `<div class="pv-top"><button data-p="back" aria-label="Volver al perfil">${ic('left')}</button><span>Publicaciones</span><i></i></div>
     <div class="pv-h">${c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : '<span></span>'}<div><b>${handle}</b><small>${esc(x.location || '')}</small></div></div>
     <div class="pv-car"><div class="pv-slides">${x.media.length ? x.media.map((m) => m.video ? `<video src="${esc(m.url)}" controls playsinline autoplay muted loop></video>` : `<img src="${esc(m.url)}" alt="">`).join('') : '<div class="pv-empty">Material en producción</div>'}</div>${x.media.length > 1 ? `<span class="pv-cnt">1/${x.media.length}</span><div class="pv-dots">${x.media.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</div>
@@ -616,6 +626,69 @@ function openPano() {
         app.detail = await api('/posts/' + app.sel + '/media', { method: 'POST', body: fd });
         app.posts = await api('/clients/' + app.client.id + '/posts'); close(); renderClient(); toast(`${S.n} fotos agregadas al carrusel`);
       } catch (err) { toast(err.message); b.disabled = false; b.textContent = `Crear ${S.n} fotos`; }
+    }
+  });
+}
+
+// ================= PLANEADOR DE CAMPAÑAS =================
+function openCampaign() {
+  const c = app.client, p = period(app.per.type, app.per.anchor);
+  const WDL = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const freq = [0, 0, 0, 0, 0, 0, 0]; app.posts.forEach((x) => x.publish_on && freq[D(x.publish_on).getUTCDay()]++);
+  const top = Math.max(...freq); const days = new Set(freq.map((n, i) => (top && n >= top / 2 ? i : -1)).filter((i) => i >= 0));
+  const S = { res: null };
+  const el = document.createElement('div'); el.className = 'scrim'; el.id = 'camp';
+  const countDates = () => { const f = el.querySelector('[name=start]').value, t = el.querySelector('[name=end]').value; let n = 0; if (f && t) for (let d = f; d <= t; d = add(d, 1)) if ([...el.querySelectorAll('[name=day]:checked')].some((x) => +x.value === D(d).getUTCDay())) n++; return n; };
+  const form = () => `<div class="mb"><div class="form">
+      <label class="full">Nombre de la campaña<input name="name" placeholder="Ej. Navidad en Garda" required></label>
+      <label class="full">Objetivo y contexto<textarea name="goal" rows="3" placeholder="Qué queremos lograr, promociones, fechas importantes, qué hay de nuevo en el lugar…"></textarea></label>
+      <label>Desde<input type="date" name="start" value="${p.start}"></label><label>Hasta<input type="date" name="end" value="${p.end}"></label>
+      <label class="full">Días de publicación<div class="daypick">${[1, 2, 3, 4, 5, 6, 0].map((i) => `<label><input type="checkbox" name="day" value="${i}" ${days.has(i) ? 'checked' : ''}><span>${WDL[i]}</span></label>`).join('')}</div></label>
+      <label>Publicaciones<input type="number" name="count" min="1" max="30" value="6"></label>
+      <label>Formatos<select name="mix"><option value="equilibrada entre foto, carrusel y reel">Equilibrado</option><option value="más reels que fotos">Más reels</option><option value="más carruseles">Más carruseles</option><option value="solo fotos">Solo fotos</option></select></label>
+      <label class="full">Indicaciones para el agente (opcional)<textarea name="notes" rows="2" placeholder="Ej. incluir la cena del 24, cerrar con año nuevo, no usar la palabra 'mágico'."></textarea></label>
+    </div><span class="dim" style="font-size:12.5px" id="cinfo"></span></div>
+    <div class="mf"><span class="dim">Las propuestas se crean como borrador; nada se envía al cliente.</span><div class="row"><button class="btn" data-x="close">Cancelar</button><button class="btn pri" data-x="run">${ic('pen')}Proponer bloque</button></div></div>`;
+  const results = () => { const r = S.res; return `<div class="mb"><div class="csum"><b>${esc(S.name)}</b><span>${esc(r.summary || '')}</span></div>
+    <div class="clist">${r.posts.map((x, i) => { const taken = app.posts.find((y) => y.publish_on === x.date); return `<article class="cpost">
+      <label class="cchk"><input type="checkbox" data-i="${i}" checked></label>
+      <div class="cbody"><div class="row" style="gap:8px;flex-wrap:wrap"><input type="date" data-k="date" data-i="${i}" value="${esc(x.date)}" style="width:auto"><select data-k="kind" data-i="${i}" style="width:auto">${Object.entries(KIND).map(([k, v]) => `<option value="${k}" ${k === x.kind ? 'selected' : ''}>${v}</option>`).join('')}</select>${taken ? `<span class="warn">Ese día ya está P${taken.number}</span>` : ''}</div>
+      <input data-k="title" data-i="${i}" value="${esc(x.title)}" class="ctitle">
+      <p class="mu">${esc(x.idea || '')}</p>
+      <textarea data-k="copy" data-i="${i}" rows="3">${esc(x.copy || '')}</textarea>
+      ${x.shots ? `<p class="shots"><b>Material:</b> ${esc(x.shots)}</p>` : ''}</div></article>`; }).join('')}</div></div>
+    <div class="mf"><button class="btn ghost" data-x="back">${ic('left')}Ajustar y volver a proponer</button><div class="row"><button class="btn" data-x="close">Cancelar</button><button class="btn pri" data-x="make">Crear <span id="cn">${r.posts.length}</span> en borrador</button></div></div>`; };
+  const frame = (inner) => `<div class="modal wide" role="dialog" aria-label="Planear campaña"><div class="mh"><div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow">${esc(c.name)} · Agente Planeador de campañas</span><div class="h2">Planear campaña</div></div><button class="iconbtn" data-x="close" aria-label="Cerrar">${ic('x')}</button></div>${inner}</div>`;
+  let saved = null;
+  const showForm = () => { el.innerHTML = frame(form()); if (saved) Object.entries(saved).forEach(([k, v]) => { const f = el.querySelector(`[name=${k}]`); if (f && k !== 'day') f.value = v; }); const upd = () => { el.querySelector('#cinfo').textContent = `Hay ${countDates()} fechas disponibles en ese rango con los días elegidos.`; }; el.querySelectorAll('[name=start],[name=end],[name=day]').forEach((f) => f.onchange = upd); upd(); };
+  document.body.appendChild(el); showForm();
+  const close = () => el.remove();
+  el.addEventListener('change', (e) => { const t = e.target; if (!S.res) return; if (t.matches('.cchk input')) { el.querySelector('#cn').textContent = el.querySelectorAll('.cchk input:checked').length; } else if (t.dataset.k) S.res.posts[+t.dataset.i][t.dataset.k] = t.value; });
+  el.addEventListener('input', (e) => { const t = e.target; if (S.res && t.dataset.k) S.res.posts[+t.dataset.i][t.dataset.k] = t.value; });
+  el.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-x]'); if (!b) { if (e.target === el) close(); return; }
+    const x = b.dataset.x;
+    if (x === 'close') close();
+    else if (x === 'back') { S.res = null; showForm(); }
+    else if (x === 'run') {
+      const v = (n) => el.querySelector(`[name=${n}]`).value;
+      saved = { name: v('name'), goal: v('goal'), start: v('start'), end: v('end'), count: v('count'), mix: v('mix'), notes: v('notes') };
+      if (!saved.name.trim()) { toast('Ponle nombre a la campaña'); return; }
+      const dsel = [...el.querySelectorAll('[name=day]:checked')].map((i) => +i.value);
+      b.disabled = true; b.innerHTML = 'El agente está planeando…';
+      try {
+        const r = await api('/agents/campana/run', { method: 'POST', body: { client_id: c.id, campaign: { ...saved, days: dsel } } });
+        if (!r.posts || !r.posts.length) throw new Error('El agente no regresó propuestas. Intenta de nuevo.');
+        S.res = r; S.name = saved.name; el.innerHTML = frame(results());
+      } catch (err) { toast(err.message); b.disabled = false; b.innerHTML = `${ic('pen')}Proponer bloque`; }
+    } else if (x === 'make') {
+      const sel = [...el.querySelectorAll('.cchk input:checked')].map((i) => S.res.posts[+i.dataset.i]).sort((a, z) => a.date.localeCompare(z.date));
+      if (!sel.length) { toast('Elige al menos una publicación'); return; }
+      b.disabled = true; let n = 0;
+      try {
+        for (const q of sel) { b.textContent = `Creando ${++n} de ${sel.length}…`; await api('/clients/' + c.id + '/posts', { method: 'POST', body: { title: q.title, publish_on: q.date, kind: q.kind, copy: q.copy, notes: `Campaña: ${S.name}\nIdea: ${q.idea || ''}${q.shots ? '\nMaterial: ' + q.shots : ''}` } }); }
+        app.posts = await api('/clients/' + c.id + '/posts'); close(); renderClient(); toast(`${sel.length} publicaciones creadas en borrador`);
+      } catch (err) { toast(err.message); b.disabled = false; b.textContent = 'Reintentar'; }
     }
   });
 }

@@ -12,12 +12,13 @@ const I = {
   save: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>', check: '<path d="M20 6L9 17l-5-5"/>', more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
 };
 const ic = (n, s = '') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="${s}">${I[n]}</svg>`;
-const LABEL = { pendiente: 'Revisar', ok: 'Aprobada', cambio: 'Cambio pedido', produccion: 'En producción', publicada: '' };
-const COLOR = { pendiente: 'var(--ac)', ok: 'var(--ok)', cambio: 'var(--cambio)', produccion: 'var(--prod)', publicada: 'var(--dim)' };
+const LABEL = { pendiente: 'Por aprobar', ok: 'Aprobada', cambio: 'Cambio pedido', produccion: 'En producción', publicada: '', proxima: 'Próxima' };
+const COLOR = { pendiente: 'var(--ac)', ok: 'var(--ok)', cambio: 'var(--cambio)', produccion: 'var(--prod)', publicada: 'var(--dim)', proxima: 'var(--dim)' };
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const fecha = (s) => { if (!s) return ''; const [, m, d] = s.slice(0, 10).split('-').map(Number); return `${d} ${MES[m - 1]}`; };
 
-let D = null, open = null, changing = false, busy = false;
+let D = null, open = null, changing = false, busy = false, full = false;
+const inReview = (p) => ['pendiente', 'ok', 'cambio'].includes(p.state);
 
 const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2200); };
 async function call(path = '', body) {
@@ -42,14 +43,14 @@ function render() {
   const answered = D.request.status !== 'abierta';
   $('#root').innerHTML = `<div class="wrap">
     <header class="brief"><div class="ring" style="--p:${pct}" aria-label="${done} de ${all.length} revisadas"><span>${done}/${all.length}</span></div>
-      <div class="t"><b>Parrilla ${esc(D.request.period_type)} · ${esc(D.request.label)}</b><span>${answered ? 'Ya enviaste tu respuesta. Puedes seguir comentando.' : `${D.request.due_at ? 'Responde antes del ' + fecha(D.request.due_at) + ' · ' : ''}Toca las marcadas para revisarlas`}</span></div></header>
+      <div class="t"><b>Parrilla ${esc(D.request.period_type)} · ${esc(D.request.label)}</b><span>${answered ? 'Ya enviaste tu respuesta. Puedes seguir comentando.' : `${all.length} publicaciones para aprobar${D.request.due_at ? ' · antes del ' + fecha(D.request.due_at) : ''}`}</span></div></header>
     <div class="igbar"><span>${esc(c.handle || c.name)}</span>${ic('more')}</div>
     <div class="prof">${c.avatar ? `<img class="av" src="${esc(c.avatar)}" alt="">` : '<span class="av"></span>'}
-      <div class="stats"><span><b>${D.posts.length}</b>publicaciones</span><span><b>${all.length}</b>en esta parrilla</span><span><b>${D.posts.filter((p) => p.state === 'ok').length}</b>aprobadas</span></div></div>
+      <div class="stats"><span><b>${D.posts.filter((p) => p.state !== 'proxima').length}</b>publicaciones</span><span><b>${pending().length}</b>por aprobar</span><span><b>${D.posts.filter((p) => p.state === 'ok').length}</b>aprobadas</span></div></div>
     <div class="bio"><b>${esc(c.name)}</b>${c.bio ? '\n' + esc(c.bio) : ''}</div>
     ${c.highlights.length ? `<div class="hl">${c.highlights.map((h) => `<span>${h.image ? `<img src="${esc(h.image)}" alt="">` : '<i></i>'}${esc(h.label)}</span>`).join('')}</div>` : ''}
     <div class="gtabs"><span>${ic('grid')}</span></div>
-    <div class="grid">${D.posts.map(tile).join('')}</div>
+    ${grid()}
     <div class="foot">Parrilla preparada por <b>${esc(D.agency)}</b> · Compartida con No'j OS</div>
   </div>
   <div class="dock"><div class="in"><span>${pending().length ? `Te faltan <b>${pending().length}</b> por revisar` : 'Revisaste todo. ¡Gracias!'}</span>
@@ -57,12 +58,24 @@ function render() {
   if (open) renderSheet();
 }
 
+function grid() {
+  const cells = [...Array((3 - (D.posts.length % 3)) % 3).fill(null), ...D.posts];
+  const rows = []; for (let i = 0; i < cells.length; i += 3) rows.push(cells.slice(i, i + 3));
+  const rr = rows.map((r, i) => (r.some((p) => p && inReview(p)) ? i : -1)).filter((i) => i >= 0);
+  let a = 0, b = rows.length - 1;
+  if (rr.length && !full) { a = Math.max(0, rr[0] - 1); b = Math.min(rows.length - 1, rr[rr.length - 1] + 1); }
+  const hidden = rows.length - (b - a + 1);
+  return `${a > 0 ? `<button class="more" data-act="full">Ver ${a * 3} publicaciones más arriba</button>` : ''}
+    <div class="grid">${rows.slice(a, b + 1).map((r) => r.map((p) => (p ? tile(p) : '<span class="tile ph"><span>Próxima</span></span>')).join('')).join('')}</div>
+    ${hidden ? `<button class="more" data-act="full">${b < rows.length - 1 ? `Ver el perfil completo · ${(rows.length - 1 - b) * 3} publicaciones anteriores` : 'Ver el perfil completo'}</button>` : full && rr.length ? '<button class="more" data-act="focus">Mostrar solo lo que hay que aprobar</button>' : ''}`;
+}
+
 function tile(p) {
-  const m = p.media[0], clickable = p.state !== 'produccion';
-  return `<button class="tile ${p.state}" ${clickable ? `data-act="open" data-id="${p.id}"` : 'disabled'} aria-label="${esc(p.title)}${LABEL[p.state] ? ' · ' + LABEL[p.state] : ''}">
+  const m = p.media[0], clickable = !['produccion', 'proxima'].includes(p.state);
+  return `<button class="tile ${p.state} ${inReview(p) ? 'rev' : 'muted'}" ${clickable ? `data-act="open" data-id="${p.id}"` : 'disabled'} aria-label="${esc(p.title)}${LABEL[p.state] ? ' · ' + LABEL[p.state] : ''}">
     ${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy">`) : `<span class="noimg">${esc(p.title)}</span>`}
     ${p.kind === 'reel' ? REEL : p.kind === 'carr' || p.media.length > 1 ? CARR : ''}
-    ${LABEL[p.state] ? `<span class="badge"><i></i>${p.state === 'ok' ? '✓ ' : ''}${LABEL[p.state]}${p.state === 'pendiente' ? ' · ' + esc(p.date) : ''}</span>` : ''}</button>`;
+    ${LABEL[p.state] ? `<span class="badge"><i></i>${p.state === 'ok' ? '✓ ' : ''}${LABEL[p.state]}</span>` : ''}${inReview(p) ? `<span class="when">${esc(p.date)}</span>` : ''}</button>`;
 }
 
 function renderSheet() {
@@ -82,11 +95,11 @@ function renderSheet() {
       <div class="cap"><b>${esc(c.handle || c.name)}</b>${esc(p.copy) || '<span style="color:var(--dim)">Copy en proceso</span>'}</div>
       <div class="when">Se publica el ${esc(p.date)}</div>
       ${canDecide ? `<section class="review" aria-label="Tu revisión">
-        <div class="state"><i style="background:${COLOR[p.state]}"></i>${p.state === 'pendiente' ? '¿Cómo la ves?' : p.state === 'ok' ? 'La aprobaste' : 'Pediste un cambio'}</div>
+        <div class="state"><i style="background:${COLOR[p.state]}"></i>${p.state === 'pendiente' ? '¿Aprobamos esta publicación?' : p.state === 'ok' ? 'Aprobada. Gracias.' : 'Pediste un cambio. Te avisamos cuando quede.'}</div>
         ${p.thread.length ? `<div class="thread">${p.thread.map((k) => `<div class="msg ${k.who}"><small>${esc(k.who === 'client' ? 'Tú' : k.name)}</small>${esc(k.body)}</div>`).join('')}</div>` : ''}
         ${changing ? `<textarea id="note" rows="3" placeholder="Cuéntanos qué cambiarías: copy, foto, fecha…" aria-label="Cambio que pides"></textarea>
-          <div class="row"><button class="btn" data-act="cancel">Cancelar</button><button class="btn ch" data-act="send-change">Enviar cambio</button></div>`
-        : `<div class="row"><button class="btn ch" data-act="change">${p.state === 'cambio' ? 'Agregar comentario' : 'Pedir cambio'}</button><button class="btn ok" data-act="ok" ${p.state === 'ok' ? 'disabled' : ''}>${ic('check', 'width:18px;height:18px')}${p.state === 'ok' ? 'Aprobada' : 'Aprobar'}</button></div>`}
+          <div class="row"><button class="btn pri" data-act="send-change">Enviar cambio</button><button class="btn" data-act="cancel">Cancelar</button></div>`
+        : `<div class="acts2"><button class="btn ok" data-act="ok" ${p.state === 'ok' ? 'disabled' : ''}>${ic('check', 'width:18px;height:18px')}${p.state === 'ok' ? 'Aprobada' : 'Aprobar'}</button><button class="btn link" data-act="change">${p.state === 'cambio' ? 'Agregar otro comentario' : 'Pedir un cambio'}</button></div>`}
         <div class="navp"><button data-act="nav" data-v="-1" ${i <= 0 ? 'style="visibility:hidden"' : ''}>‹ Anterior</button><span>${i + 1} de ${list.length}</span><button data-act="nav" data-v="1" ${i >= list.length - 1 ? 'style="visibility:hidden"' : ''}>Siguiente ›</button></div>
       </section>` : ''}
     </div></article>`;
@@ -135,6 +148,8 @@ document.addEventListener('click', (e) => {
   else if (a === 'send-change') { const n = $('#note').value.trim(); if (!n) { toast('Escribe qué cambiarías'); return; } decide('cambio', n); }
   else if (a === 'nav') { const l = review(), i = l.findIndex((x) => x.id === open) + +t.dataset.v; if (l[i]) { open = l[i].id; changing = false; renderSheet(); } }
   else if (a === 'finish') finish();
+  else if (a === 'full') { full = true; render(); }
+  else if (a === 'focus') { full = false; render(); }
   else if (a === 'back') render();
 });
 document.addEventListener('keydown', (e) => {

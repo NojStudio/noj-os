@@ -28,6 +28,15 @@ async function view(env, req) {
   const posts = (await env.DB.prepare(
     "SELECT * FROM posts WHERE client_id=? AND (status='pub' OR (publish_on IS NOT NULL AND publish_on <= ?)) ORDER BY number DESC"
   ).bind(req.client_id, req.period_end).all()).results;
+  // Completar la fila de arriba del feed con las siguientes publicaciones (filas de 3).
+  const need = (3 - (posts.length % 3)) % 3;
+  if (need) {
+    const next = (await env.DB.prepare(
+      "SELECT * FROM posts WHERE client_id=? AND status!='pub' AND publish_on > ? ORDER BY publish_on, number LIMIT ?"
+    ).bind(req.client_id, req.period_end, need).all()).results;
+    for (const n of next) n._next = true;
+    posts.unshift(...next.reverse());
+  }
   const ids = posts.map((p) => p.id);
   const media = ids.length
     ? (await env.DB.prepare(`SELECT * FROM post_media WHERE post_id IN (${ids.map(() => '?').join(',')}) ORDER BY position`).bind(...ids).all()).results
@@ -44,10 +53,10 @@ async function view(env, req) {
     request: { period_type: req.period_type, label: `${dayLabel(req.period_start)} – ${dayLabel(req.period_end)}`, due_at: req.due_at, status: req.status },
     posts: posts.map((p) => {
       const it = byPost[p.id];
-      const state = it ? (it.decision || 'pendiente') : (p.status === 'pub' || !inPeriod(p) ? 'publicada' : 'produccion');
+      const state = it ? (it.decision || 'pendiente') : p._next ? 'proxima' : (p.status === 'pub' || !inPeriod(p) ? 'publicada' : 'produccion');
       return {
         id: p.id, number: p.number, title: p.title, kind: p.kind, date: dayLabel(p.publish_on),
-        copy: state === 'produccion' ? '' : p.copy, location: p.location, state, note: it ? it.note : '',
+        copy: state === 'produccion' || state === 'proxima' ? '' : p.copy, location: p.location, state, note: it ? it.note : '',
         thread: thread.filter((k) => k.post_id === p.id).map((k) => ({ who: k.author_type === 'client' ? 'client' : 'team', name: k.author_name, body: k.body, at: k.created_at })),
         media: media.filter((m) => m.post_id === p.id).map((m) => ({ url: mediaUrl(m.r2_key), video: m.mime.startsWith('video/') })),
       };

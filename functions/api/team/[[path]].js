@@ -141,8 +141,8 @@ async function createPost(env, W, me, cid, b) {
   const pid = id('p_');
   const kind = KINDS.includes(b.kind) ? b.kind : 'foto';
   await env.DB.prepare(
-    'INSERT INTO posts (id, client_id, number, title, kind, publish_on, status, copy, location, owner_member) VALUES (?,?,?,?,?,?,?,?,?,?)'
-  ).bind(pid, cid, max.n + 1, String(b.title || 'Nueva publicación'), kind, b.publish_on || null, 'borrador', '', c.location || '', me.id).run();
+    'INSERT INTO posts (id, client_id, number, title, kind, publish_on, status, copy, location, owner_member, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+  ).bind(pid, cid, max.n + 1, String(b.title || 'Nueva publicación').slice(0, 200), kind, /^\d{4}-\d{2}-\d{2}$/.test(b.publish_on || '') ? b.publish_on : null, 'borrador', String(b.copy || '').slice(0, 2200), c.location || '', me.id, String(b.notes || '').slice(0, 4000)).run();
   await logActivity(env, { workspace_id: W, client_id: cid, post_id: pid, actor: me.name, kind: 'post.new', text: `${me.name} creó P${max.n + 1} · ${b.title || 'Nueva publicación'}` });
   return getPost(env, W, pid);
 }
@@ -382,7 +382,11 @@ async function runAgent(env, W, me, aid, b) {
   if (!a || a.status !== 'disponible') return fail(404, 'Agente no disponible');
   const state = await agentState(env, W);
   if (!state[aid]) return fail(403, `El agente «${a.name}» está apagado en este espacio.`);
-  const ctx = { input: { instruction: String(b.instruction || '').slice(0, 500) } };
+  const cp = b.campaign && typeof b.campaign === 'object' ? b.campaign : null;
+  const ctx = { input: { instruction: String(b.instruction || '').slice(0, 500), campaign: cp && {
+    name: String(cp.name || '').slice(0, 120), goal: String(cp.goal || '').slice(0, 800), start: String(cp.start || ''), end: String(cp.end || ''),
+    days: Array.isArray(cp.days) ? cp.days.map(Number).filter((d) => d >= 0 && d <= 6) : [], count: Math.min(30, Math.max(1, Number(cp.count) || 6)),
+    mix: String(cp.mix || '').slice(0, 200), notes: String(cp.notes || '').slice(0, 1500) } } };
   if (a.needs === 'post') {
     ctx.post = await postOf(env, W, b.post_id);
     if (!ctx.post) return fail(404, 'Publicación no encontrada');
@@ -393,6 +397,8 @@ async function runAgent(env, W, me, aid, b) {
     if (!ctx.client) return fail(404, 'Cliente no encontrado');
     ctx.tasks = (await env.DB.prepare("SELECT title, detail FROM tasks WHERE client_id=? AND bucket='cliente' AND status NOT IN ('cerrado','terminado')").bind(ctx.client.id).all()).results;
     ctx.pending = (await env.DB.prepare("SELECT number, title, publish_on FROM posts WHERE client_id=? AND status='aprob' ORDER BY publish_on").bind(ctx.client.id).all()).results;
+    ctx.recent = (await env.DB.prepare('SELECT number, title, kind, publish_on FROM posts WHERE client_id=? ORDER BY number DESC LIMIT 20').bind(ctx.client.id).all()).results;
+    if (a.id === 'campana' && (!ctx.input.campaign || !/^\d{4}-\d{2}-\d{2}$/.test(ctx.input.campaign.start) || !/^\d{4}-\d{2}-\d{2}$/.test(ctx.input.campaign.end))) return fail(400, 'Faltan las fechas de la campaña');
   }
   const { prompt, max_tokens } = await a.build(ctx);
   const runId = id('run_');

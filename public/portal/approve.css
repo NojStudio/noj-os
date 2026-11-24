@@ -51,7 +51,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .tile.pendiente .badge i{background:#04110d;animation:pulse 1.6s infinite}
 .tile.ok .badge{color:var(--ok)}
 .tile.cambio .badge{color:var(--cambio)}
-.tile.produccion img,.tile.produccion video{filter:grayscale(.6) brightness(.55)}
+.tile.muted img,.tile.muted video,.tile.muted .noimg{filter:grayscale(.35) brightness(.38)}
 .tile.produccion .badge{color:var(--prod)}
 .tile.publicada img,.tile.publicada video{opacity:.92}
 @keyframes pulse{50%{opacity:.35}}
@@ -95,6 +95,9 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .review .state{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2)}
 .review .state i{width:8px;height:8px;border-radius:50%}
 .review .row{display:flex;gap:8px}.review .row .btn{flex:1}
+.acts2{display:flex;flex-direction:column;gap:8px}.acts2 .btn.ok{height:48px;font-size:15px}
+.btn.link{background:none;border:0;color:var(--mu);font-weight:500;text-decoration:underline;text-underline-offset:3px;height:auto;padding:6px}
+.btn.link:hover{color:var(--tx);filter:none}
 .thread{display:flex;flex-direction:column;gap:8px}
 .msg{max-width:88%;padding:8px 12px;border-radius:14px;font-size:13.5px;white-space:pre-line;line-height:1.35}
 .msg small{display:block;font-size:11px;color:var(--mu);margin-bottom:2px}
@@ -121,3 +124,13 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stro
   .post .side{grid-column:2;overflow-y:auto;display:flex;flex-direction:column}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* foco en lo que hay que aprobar */
+.tile.rev{z-index:1}
+.tile.muted .badge{background:rgba(0,0,0,.55);color:#bdbdbd}
+.tile.muted .badge i{display:none}
+.tile .when{position:absolute;top:6px;left:6px;font:600 10px/1 var(--f);padding:4px 7px;border-radius:10px;background:rgba(0,0,0,.6);color:#fff}
+.tile.ph{display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(135deg,#0d0d0d 0 8px,#131313 8px 16px);color:#555;font:500 11px var(--f)}
+.more{display:block;width:calc(100% - 32px);margin:10px 16px;padding:11px;border-radius:12px;border:1px solid var(--ln2);color:var(--tx2);font:500 13px var(--f);text-align:center;background:#0b0b0b}
+.more:hover{border-color:#555;color:var(--tx)}
+@media (max-width:899px){.review{position:sticky;bottom:0;z-index:2;box-shadow:0 -12px 24px rgba(0,0,0,.6)}}

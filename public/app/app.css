@@ -554,3 +554,31 @@ textarea,input,select{border-radius:12px}
 .pano-ctrl label{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--mu)}
 .pano-ctrl input[type=range]{padding:0;border:0;background:none;accent-color:var(--ink);height:30px}
 @media (max-width:900px){.modal.wide{border-radius:0;max-height:none;height:100%}.scrim:has(.modal.wide){padding:0}}
+.tile.next img,.tile.next video{opacity:.4;filter:grayscale(.3)}
+.tile.ph{display:block;background:repeating-linear-gradient(135deg,#ecebe7 0 8px,#e4e3df 8px 16px)}
+:root[data-theme="dark"] .tile.ph,.pphone .tile.ph{background:repeating-linear-gradient(135deg,#0d0d0d 0 8px,#141414 8px 16px)}
+.tile.ph .noimg{font:500 11px var(--f);color:#999}
+
+/* planeador de campañas */
+.daypick{display:flex;gap:6px;flex-wrap:wrap}
+.daypick label{display:block;cursor:pointer}
+.daypick input{position:absolute;opacity:0;width:1px;height:1px}
+.daypick span{display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--ln2);font:600 13px var(--f);color:var(--mu);text-transform:none;letter-spacing:0}
+.daypick input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--card)}
+.daypick input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.csum{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:14px;background:var(--card-2)}
+.csum b{font-size:16px}.csum span{color:var(--mu);font-size:13.5px}
+.clist{display:flex;flex-direction:column;gap:10px}
+.cpost{display:flex;gap:14px;padding:14px 16px;border:1px solid var(--ln);border-radius:16px;background:var(--card)}
+.cchk input{width:18px;height:18px;margin-top:8px;accent-color:var(--ink)}
+.cbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.cbody .ctitle{font:700 16px var(--f);border-color:transparent;background:none;padding:4px 0}
+.cbody .ctitle:hover{border-color:var(--ln2)}
+.cbody p{font-size:13px}
+.cbody .shots{font-size:12.5px;color:var(--mu)}
+.cbody input[type=date],.cbody select{height:34px;padding:0 10px;font-size:13px}
+.warn{font-size:12px;font-weight:600;color:var(--prod);padding:4px 9px;border-radius:8px;background:color-mix(in srgb,var(--prod) 14%,transparent)}
+/* listas desplegables legibles en ambos modos */
+select option,select optgroup{background-color:var(--card);color:var(--ink)}
+:root[data-theme="dark"] select{color-scheme:dark}
+.mtools{margin-bottom:-10px}
