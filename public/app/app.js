@@ -10,6 +10,10 @@ const ICON = {
   pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.5 3.5 5.2"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   bot: '<rect x="4" y="8" width="16" height="12" rx="1"/><path d="M12 4v4M9 13v2M15 13v2M2 14h2M20 14h2"/>',
   up: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
@@ -130,22 +134,34 @@ async function loadHoy() {
   const late = open.filter((t) => t.due_on && t.due_on < today());
   const d = D(today());
   const hello = new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const hoyT = open.filter((t) => t.bucket === 'hoy'), rest = open.filter((t) => t.bucket !== 'hoy');
   const inner = `<div class="page">
-    <div class="hello"><span class="eyebrow">${WD[d.getUTCDay()]} ${d.getUTCDate()} de ${MESL[d.getUTCMonth()].toLowerCase()}</span><h1 class="h1">${hello}, <em>${esc(app.me.member.name.split(' ')[0])}</em>.</h1><p class="lede">${mine.length ? `Tienes ${mine.length} pendiente${mine.length === 1 ? '' : 's'} a tu nombre` : 'No tienes pendientes a tu nombre'}${waiting.length ? ` y ${waiting.length} cosa${waiting.length === 1 ? '' : 's'} esperando a clientes` : ''}.</p></div>
-    <div class="kpis">
-      ${kpi('Tus pendientes', mine.length, 'abiertos a tu nombre', 'var(--lista)')}
-      ${kpi('Esperando al cliente', waiting.length, 'en espera', 'var(--aprob)')}
-      ${kpi('Atrasados', late.length, 'con fecha vencida', 'var(--cambio)')}
-      ${kpi('Clientes activos', app.me.clients.length, app.me.clients.map((c) => c.name).join(', '), 'var(--prod)')}
-    </div>
-    <div class="two">
-      <section class="card">${taskGroups(open, true)}</section>
-      <aside style="display:flex;flex-direction:column;gap:16px">
-        <section class="card"><div class="card-h"><span>Actividad</span><span class="ct">${act.items.length}</span></div><div class="list feed">${act.items.slice(0, 12).map(feedItem).join('') || '<div class="empty">Sin actividad todavía</div>'}</div></section>
-      </aside>
-    </div></div>`;
+    <div class="hello"><h1 class="h1">${hello}, ${esc(app.me.member.name.split(' ')[0])} <span aria-hidden="true">👋</span></h1><p class="lede">${WD[d.getUTCDay()]} ${d.getUTCDate()} de ${MESL[d.getUTCMonth()].toLowerCase()} · ${mine.length ? `tienes ${mine.length} pendiente${mine.length === 1 ? '' : 's'} a tu nombre` : 'no tienes pendientes a tu nombre'}${waiting.length ? ` y ${waiting.length} esperando a clientes` : ''}.</p></div>
+    <div class="dash"><div>
+      <section class="card">${cardH('bolt', 'Acciones rápidas')}
+        <div class="qa">
+          <button data-act="qa" data-go="post"><span class="ci" style="background:var(--i1)">${ic('plus')}</span>Nueva publicación</button>
+          <button data-act="qa" data-go="send"><span class="ci" style="background:var(--i2)">${ic('send')}</span>Enviar a aprobación</button>
+          <button data-act="qa" data-go="task"><span class="ci" style="background:var(--i3)">${ic('check')}</span>Nuevo pendiente</button>
+          <button data-act="qa" data-go="agents"><span class="ci" style="background:var(--i4)">${ic('pen')}</span>Pedir a un agente</button>
+        </div></section>
+      <section class="card">${cardH('grid', 'Resumen', '<a class="vbtn" href="#/pendientes">Ver todo</a>')}
+        <div class="stats">
+          ${stat(mine.length, 'Tus pendientes abiertos', 'check')}
+          ${stat(waiting.length, 'Esperando al cliente', 'clock')}
+          ${stat(late.length, 'Atrasados', 'bell')}
+          ${stat(app.me.clients.length, app.me.clients.length === 1 ? 'Cliente activo' : 'Clientes activos', 'users')}
+        </div></section>
+      <section class="card">${cardH('list', 'Pendientes del estudio', `<span class="count">${rest.length}</span>`)}${taskGroups(rest, true)}</section>
+    </div><div>
+      <section class="card">${cardH('check', 'Para hoy', hoyT.length ? `<span class="count">${hoyT.length}</span>` : '')}${hoyT.length ? `<div class="list">${hoyT.map((x) => taskRow(x, true)).join('')}</div>` : calm()}</section>
+      <section class="card">${cardH('inbox', 'Actividad', '<button class="vbtn" data-act="bell">Ver todo</button>')}<div class="list feed" style="padding-bottom:10px">${act.items.slice(0, 8).map(feedItem).join('') || '<div class="empty">Sin actividad todavía</div>'}</div></section>
+    </div></div></div>`;
   $('#root').innerHTML = shell(inner, '<b>Hoy</b>');
 }
+const cardH = (icon, title, right = '') => `<div class="card-h"><span class="t"><span class="hbox">${ic(icon)}</span>${title}</span>${right}</div>`;
+const stat = (v, l, icon) => `<div class="stat"><div><b>${v}</b><span>${esc(l)}</span></div><span class="ci">${ic(icon)}</span></div>`;
+const calm = () => `<div class="calm"><svg viewBox="0 0 200 120" aria-hidden="true"><ellipse cx="100" cy="108" rx="80" ry="6" fill="var(--sunk)"/><path d="M40 30h86a6 6 0 0 1 6 6v52H34V36a6 6 0 0 1 6-6z" fill="var(--card-2)" stroke="var(--ink)" stroke-width="2"/><path d="M24 88h120l-8 12H32z" fill="var(--brand)" stroke="var(--ink)" stroke-width="2"/><path d="M68 58l10 10 20-22" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M152 66h22v24a8 8 0 0 1-8 8h-6a8 8 0 0 1-8-8z" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/><path d="M174 72h4a6 6 0 0 1 0 12h-4" fill="none" stroke="var(--ink)" stroke-width="2"/><path d="M158 56c0-4 4-4 4-8M166 56c0-4 4-4 4-8" stroke="var(--dim)" stroke-width="2" fill="none" stroke-linecap="round"/></svg><b>¡Eso es todo por hoy!</b><span>Te ganaste un café.</span></div>`;
 const kpi = (l, v, sub, c) => `<div class="kpi"><span class="k"><span class="dot" style="background:${c}"></span>${l}</span><b>${v}</b><span class="s">${esc(sub)}</span></div>`;
 const feedItem = (a) => `<div class="it"><span class="dot" style="background:${a.kind.startsWith('request') ? 'var(--aprob)' : a.kind === 'post.status' ? 'var(--lista)' : a.kind === 'request.answered' ? 'var(--cambio)' : 'var(--dim)'}"></span><div class="grow"><span>${esc(a.text)}</span><span class="dim">${esc(ago(a.created_at))}</span></div></div>`;
 function ago(s) { const t = new Date(s.replace(' ', 'T') + 'Z').getTime(), m = Math.round((Date.now() - t) / 60000); if (m < 1) return 'ahora'; if (m < 60) return `hace ${m} min`; const h = Math.round(m / 60); if (h < 24) return `hace ${h} h`; const d = Math.round(h / 24); return d === 1 ? 'ayer' : `hace ${d} días`; }
@@ -216,6 +232,7 @@ async function loadClient(cid) {
   if (!app.sel) { const p = period(app.per.type, app.per.anchor); const first = posts.filter((x) => x.publish_on >= p.start && x.publish_on <= p.end).sort((a, b) => a.number - b.number)[0]; app.sel = first ? first.id : posts[0] && posts[0].id; }
   if (app.sel && app.ctab === 'parrilla') app.detail = await api('/posts/' + app.sel);
   renderClient();
+  if (app.pending && app.ctab === 'parrilla') { const act = app.pending; app.pending = null; const b = document.querySelector(`[data-act="${act}"]`); b && b.click(); }
 }
 
 function renderClient() {
@@ -326,7 +343,7 @@ function inspector() {
 }
 
 function envios() {
-  return `<div class="page"><section class="card"><div class="card-h"><span>Envíos a aprobación</span><span class="ct">${app.requests.length}</span></div><div class="list">${app.requests.map((r) => `<div class="it">
+  return `<div class="page"><section class="card">${cardH('send', 'Envíos a aprobación', `<span class="count">${app.requests.length}</span>`)}<div class="list">${app.requests.map((r) => `<div class="it">
     <span class="dot" style="background:${r.status === 'abierta' ? 'var(--aprob)' : 'var(--ok)'}"></span>
     <div class="grow"><b>${r.period_type[0].toUpperCase() + r.period_type.slice(1)} · ${label(r.period_start)} – ${label(r.period_end)}</b><span class="dim">${r.status === 'abierta' ? 'Esperando respuesta' : 'Respondida'} · ${r.ok}/${r.total} aprobadas${r.cambio ? ' · ' + r.cambio + ' con cambio' : ''} · enviada ${esc(ago(r.created_at))}${r.sent_to ? ' a ' + esc(r.sent_to) : ''}</span></div>
     <button class="btn sm" data-act="copy-link" data-link="${esc(r.link)}">${ic('link')}Copiar link</button><a class="btn sm" href="${esc(r.link)}" target="_blank" rel="noopener">${ic('eye')}Abrir</a></div>`).join('') || '<div class="empty">Todavía no se ha enviado ninguna parrilla.</div>'}</div></section></div>`;
@@ -412,6 +429,10 @@ document.addEventListener('click', async (e) => {
   const a = t.dataset.act;
   try {
     if (a === 'pick') { if (t.classList.contains('tile') && matchMedia('(max-width:900px)').matches) app.mview = 'edit'; app.sel = t.dataset.id; app.ai = null; app.reply = null; app.detail = await api('/posts/' + app.sel); renderClient(); }
+    else if (a === 'qa') { const go = t.dataset.go, c0 = app.me.clients[0];
+      if (go === 'agents') location.hash = '#/agentes';
+      else if (go === 'task') { location.hash = '#/pendientes'; setTimeout(() => $('.newtask input') && $('.newtask input').focus(), 600); }
+      else if (c0) { app.pending = go === 'post' ? 'new-post' : 'open-send'; location.hash = '#/c/' + c0.id; } }
     else if (a === 'theme') { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); route(); }
     else if (a === 'menu') { $('.shell').classList.toggle('navopen'); }
     else if (a === 'mview') { app.mview = t.dataset.v; renderClient(); }
