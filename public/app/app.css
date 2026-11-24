@@ -494,3 +494,12 @@ textarea,input,select{border-radius:12px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .modal .h2 em{font-style:normal;color:var(--mu)}
+.btn.danger{color:var(--cambio)}.btn.danger:hover{background:color-mix(in srgb,var(--cambio) 10%,transparent)}
+.cscrim{position:fixed;inset:0;z-index:70;background:rgba(10,10,10,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .15s}
+.confirm{width:min(420px,100%);background:var(--card);border:1px solid var(--ln2);border-radius:22px;padding:26px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow-lg);animation:pop .18s ease}
+@keyframes pop{from{transform:scale(.96);opacity:0}}
+.confirm .ci{width:44px;height:44px}
+.confirm h3{font:700 19px/1.3 var(--f);letter-spacing:-.02em}
+.confirm p{color:var(--mu);font-size:14px}
+.confirm .row{justify-content:flex-end;margin-top:8px;flex-wrap:nowrap}
+.btn.red{background:var(--cambio);border-color:var(--cambio);color:#fff}.btn.red:hover{filter:brightness(1.08);background:var(--cambio)}

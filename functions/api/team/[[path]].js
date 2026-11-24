@@ -27,6 +27,7 @@ export async function onRequest(ctx) {
       case 'POST /clients/:/requests': return createRequest(env, W, me, p1, await body(request), request);
       case 'GET /posts/:': return getPost(env, W, p1);
       case 'PATCH /posts/:': return patchPost(env, W, me, p1, await body(request));
+      case 'DELETE /posts/:': return deletePost(env, W, me, p1);
       case 'POST /posts/:/comments': return addComment(env, W, me, p1, await body(request));
       case 'POST /posts/:/media': return uploadMedia(env, W, p1, request);
       case 'DELETE /media/:': return deleteMedia(env, W, p1);
@@ -198,6 +199,23 @@ async function uploadMedia(env, W, pid, request) {
   }
   await env.DB.prepare("UPDATE posts SET updated_at=datetime('now') WHERE id=?").bind(pid).run();
   return getPost(env, W, pid);
+}
+
+async function deletePost(env, W, me, pid) {
+  const p = await postOf(env, W, pid);
+  if (!p) return fail(404, 'Publicación no encontrada');
+  if (p.status === 'pub') return fail(409, 'Esta publicación ya salió en Instagram; no se puede borrar de la parrilla.');
+  const media = (await env.DB.prepare('SELECT r2_key FROM post_media WHERE post_id=?').bind(pid).all()).results;
+  for (const m of media) if (!m.r2_key.startsWith('seed/')) await env.MEDIA.delete(m.r2_key);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM post_media WHERE post_id=?').bind(pid),
+    env.DB.prepare('DELETE FROM comments WHERE post_id=?').bind(pid),
+    env.DB.prepare('DELETE FROM approval_items WHERE post_id=?').bind(pid),
+    env.DB.prepare('UPDATE activity SET post_id=NULL WHERE post_id=?').bind(pid),
+    env.DB.prepare('DELETE FROM posts WHERE id=?').bind(pid),
+  ]);
+  await logActivity(env, { workspace_id: W, client_id: p.client_id, actor: me.name, kind: 'post.deleted', text: `${me.name} borró P${p.number} · ${p.title}` });
+  return json({ ok: true });
 }
 
 async function deleteMedia(env, W, mid) {

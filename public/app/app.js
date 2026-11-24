@@ -54,6 +54,17 @@ async function api(path, opts = {}) {
   if (!r.ok) throw new Error(data.error || 'Error ' + r.status);
   return data;
 }
+function askConfirm({ title, text, ok = 'Sí, borrar' }) {
+  return new Promise((res) => {
+    const el = document.createElement('div'); el.className = 'cscrim';
+    el.innerHTML = `<div class="confirm" role="alertdialog" aria-modal="true" aria-labelledby="cft"><span class="ci" style="background:color-mix(in srgb,var(--cambio) 14%,transparent);color:var(--cambio)">${ic('trash')}</span><h3 id="cft">${esc(title)}</h3><p>${esc(text)}</p><div class="row"><button class="btn" data-c="0">Cancelar</button><button class="btn red" data-c="1">${esc(ok)}</button></div></div>`;
+    const done = (v) => { el.remove(); document.removeEventListener('keydown', key, true); res(v); };
+    const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    el.addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (b) done(b.dataset.c === '1'); else if (e.target === el) done(false); });
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(el); el.querySelector('[data-c="0"]').focus();
+  });
+}
 const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2200); };
 const avatar = (m, size = 28) => m ? `<span class="avs" title="${esc(m.name)}" style="width:${size}px;height:${size}px;background:color-mix(in srgb, ${m.color} 28%, var(--panel));color:color-mix(in srgb, ${m.color} 45%, var(--ink))">${esc(m.initials)}</span>` : '';
 
@@ -339,7 +350,7 @@ function inspector() {
     </div>
     <div class="tabs" style="margin:18px 26px 0">${tabs.map(([k, l]) => `<button class="${app.ptab === k ? 'on' : ''}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
     ${body}
-    <div class="ifoot"><span id="saved">${d.updated_at ? 'Guardado · ' + ago(d.updated_at) : ''}</span><div class="row">${d.status !== 'cambio' && d.status !== 'pub' ? `<button class="btn sm ghost" data-act="status" data-v="cambio">Marcar cambio pedido</button>` : ''}${!['lista', 'aprob', 'ok', 'pub'].includes(d.status) ? `<button class="btn sm pri" data-act="status" data-v="lista">Marcar como lista</button>` : ''}</div></div>`;
+    <div class="ifoot"><span class="row" style="gap:12px">${d.status !== 'pub' ? `<button class="btn sm ghost danger" data-act="del-post">${ic('trash')}Borrar</button>` : ''}<span id="saved">${d.updated_at ? 'Guardado · ' + ago(d.updated_at) : ''}</span></span><div class="row">${d.status !== 'cambio' && d.status !== 'pub' ? `<button class="btn sm ghost" data-act="status" data-v="cambio">Marcar cambio pedido</button>` : ''}${!['lista', 'aprob', 'ok', 'pub'].includes(d.status) ? `<button class="btn sm pri" data-act="status" data-v="lista">Marcar como lista</button>` : ''}</div></div>`;
 }
 
 function envios() {
@@ -442,7 +453,8 @@ document.addEventListener('click', async (e) => {
     else if (a === 'ptab') { app.ptab = t.dataset.v; renderClient(); }
     else if (a === 'status') { await savePost({ status: t.dataset.v }, true); }
     else if (a === 'new-post') { const date = t.dataset.date || null; const d = await api('/clients/' + app.client.id + '/posts', { method: 'POST', body: { title: 'Nueva publicación', publish_on: date } }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = d.id; app.detail = d; app.ptab = 'contenido'; renderClient(); $('.ihead input.title') && $('.ihead input.title').select(); }
-    else if (a === 'del-media') { if (confirm('¿Quitar este archivo de la publicación?')) { app.detail = await api('/media/' + t.dataset.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); } }
+    else if (a === 'del-post') { const d = app.detail; if (await askConfirm({ title: `¿Borrar P${d.number} · ${d.title}?`, text: 'Se borran también su material, comentarios y lo que el cliente haya respondido sobre ella. Esto no se puede deshacer.' })) { await api('/posts/' + d.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = null; app.detail = null; const p = period(app.per.type, app.per.anchor); const first = app.posts.filter((x) => x.publish_on >= p.start && x.publish_on <= p.end).sort((x, y) => x.number - y.number)[0] || app.posts[0]; if (first) { app.sel = first.id; app.detail = await api('/posts/' + first.id); } renderClient(); toast('Publicación borrada'); } }
+    else if (a === 'del-media') { if (await askConfirm({ title: '¿Quitar este archivo?', text: 'Se quita de la publicación y ya no lo verá el cliente.', ok: 'Sí, quitar' })) { app.detail = await api('/media/' + t.dataset.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); } }
     else if (a === 'ai') { t.disabled = true; t.textContent = 'Pensando…'; const r = await api('/agents/copy/run', { method: 'POST', body: { post_id: app.sel } }); app.ai = r.options; renderClient(); }
     else if (a === 'ai-use') { const v = app.ai[+t.dataset.i]; app.ai = null; await savePost({ copy: v }, true); }
     else if (a === 'reply-ai') { t.disabled = true; t.textContent = 'Pensando…'; app.reply = await api('/agents/respuestas/run', { method: 'POST', body: { post_id: app.sel } }); renderClient(); }
