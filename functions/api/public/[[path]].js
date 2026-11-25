@@ -26,13 +26,13 @@ async function view(env, req) {
   const byPost = Object.fromEntries(items.map((i) => [i.post_id, i]));
   // Perfil como se verá: lo publicado + lo del periodo (hasta el fin del periodo)
   const posts = (await env.DB.prepare(
-    "SELECT * FROM posts WHERE client_id=? AND (status='pub' OR (publish_on IS NOT NULL AND publish_on <= ?)) ORDER BY number DESC"
+    "SELECT * FROM posts WHERE client_id=? AND kind!='historia' AND (status='pub' OR (publish_on IS NOT NULL AND publish_on <= ?)) ORDER BY number DESC"
   ).bind(req.client_id, req.period_end).all()).results;
   // Completar la fila de arriba del feed con las siguientes publicaciones (filas de 3).
   const need = (3 - (posts.length % 3)) % 3;
   if (need) {
     const next = (await env.DB.prepare(
-      "SELECT * FROM posts WHERE client_id=? AND status!='pub' AND publish_on > ? ORDER BY publish_on, number LIMIT ?"
+      "SELECT * FROM posts WHERE client_id=? AND kind!='historia' AND status!='pub' AND publish_on > ? ORDER BY publish_on, number LIMIT ?"
     ).bind(req.client_id, req.period_end, need).all()).results;
     for (const n of next) n._next = true;
     posts.unshift(...next.reverse());

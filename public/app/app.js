@@ -33,7 +33,12 @@ const ic = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[
 const REEL = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm6 6v7l6-3.5z"/></svg>';
 const CARR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM3 7h2v12h12v2H4a1 1 0 0 1-1-1z"/></svg>';
 const ST = { borrador: 'Borrador', prod: 'En producción', lista: 'Lista', aprob: 'En aprobación', ok: 'Aprobada', cambio: 'Cambio pedido', pub: 'Publicada' };
-const KIND = { foto: 'Foto', carr: 'Carrusel', reel: 'Reel' };
+const KIND = { foto: 'Foto', carr: 'Carrusel', reel: 'Reel', historia: 'Historia' };
+const isH = (x) => x && x.kind === 'historia';
+// Código visible: P# para publicaciones del feed, H# para historias (numeradas aparte, en orden de creación).
+const code = (x) => { if (!isH(x)) return 'P' + String(x.number).padStart(2, '0'); const hs = (app.posts || []).filter(isH).sort((a, b) => a.number - b.number); const i = hs.findIndex((h) => h.id === x.id); return 'H' + String(i >= 0 ? i + 1 : '?').padStart(2, '0'); };
+const HTYPE = { diseno: 'Diseño', material: 'Solo material' };
+const weekOf = (s0) => { const dd = D(s0), dow = (dd.getUTCDay() + 6) % 7, st = add(s0, -dow); return { start: st, end: add(st, 6) }; };
 const TASK_ST = { pendiente: 'Pendiente', en_proceso: 'En proceso', en_espera: 'En espera', terminado: 'Terminado · sin enviar', cerrado: 'Cerrado' };
 const stc = (s) => `var(--${s})`;
 
@@ -265,7 +270,7 @@ function renderClient() {
   const tabs = [['parrilla', 'Parrilla'], ['pendientes', 'Pendientes'], ['envios', 'Envíos'], ['ficha', 'Ficha de marca']];
   const head = `<div class="chead">
     <div class="between"><div class="who">${c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : '<span class="ph"></span>'}<div><h1 class="h1">${esc(c.name)}</h1><div class="meta">${esc([c.handle && '@' + c.handle, c.services, owner && 'Responsable: ' + owner.name].filter(Boolean).join('  ·  '))}</div></div></div>
-    ${app.ctab === 'parrilla' ? `<div class="row">${agentOn('campana') ? `<button class="btn" data-act="campaign">${ic('grid')}Planear campaña</button>` : ''}<button class="btn" data-act="new-post">${ic('plus')}Publicación</button><button class="btn pri" data-act="open-send">${ic('send')}Enviar a aprobación</button></div>` : ''}</div>
+    ${app.ctab === 'parrilla' ? `<div class="row">${agentOn('campana') ? `<button class="btn" data-act="campaign">${ic('grid')}Planear campaña</button>` : ''}<button class="btn" data-act="new-post">${ic('plus')}Publicación</button><button class="btn" data-act="new-story">${ic('plus')}Historia</button><button class="btn pri" data-act="open-send">${ic('send')}Enviar a aprobación</button></div>` : ''}</div>
     <nav class="tabs">${tabs.map(([k, l]) => `<a href="#/c/${c.id}/${k}" class="${app.ctab === k ? 'on' : ''}">${l}</a>`).join('')}</nav></div>`;
   let body = '';
   if (app.ctab === 'parrilla') body = parrilla();
@@ -280,18 +285,22 @@ function renderClient() {
 
 function parrilla() {
   const p = period(app.per.type, app.per.anchor);
-  const inP = app.posts.filter((x) => x.publish_on && x.publish_on >= p.start && x.publish_on <= p.end);
+  const inP = app.posts.filter((x) => !isH(x) && x.publish_on && x.publish_on >= p.start && x.publish_on <= p.end);
   const cnt = (s) => inP.filter((x) => x.status === s).length;
+  const wk = weekOf(today()), goal = app.client.story_goal ?? 2;
+  const hWeek = app.posts.filter((x) => isH(x) && x.publish_on && x.publish_on >= wk.start && x.publish_on <= wk.end).length;
   const order = ['ok', 'aprob', 'lista', 'cambio', 'prod', 'borrador'];
   const bar = order.map((s) => cnt(s) ? `<span style="flex:${cnt(s)};background:${stc(s)}"></span>` : '').join('');
   const ready = cnt('lista') + cnt('cambio');
   // calendario
   const days = []; for (let d = p.start; d <= p.end; d = add(d, 1)) days.push(d);
   const cls = app.per.type === 'semana' ? 'wk' : app.per.type === 'mes' ? 'mo' : '';
-  const cal = days.map((d) => { const post = app.posts.find((x) => x.publish_on === d); const dd = D(d);
-    return `<button class="day ${cls} ${post ? 'has' : ''} ${post && post.id === app.sel ? 'on' : ''}" data-act="${post ? 'pick' : 'new-post'}" data-id="${post ? post.id : ''}" data-date="${d}" aria-label="${label(d)}${post ? ' · P' + post.number + ' ' + esc(post.title) : ' · agregar publicación'}">
+  const cal = days.map((d) => { const post = app.posts.find((x) => !isH(x) && x.publish_on === d); const dd = D(d);
+    const hs = app.posts.filter((x) => isH(x) && x.publish_on === d).sort((a, b) => a.number - b.number);
+    return `<div class="daycol ${cls}"><button class="day ${cls} ${post ? 'has' : ''} ${post && post.id === app.sel ? 'on' : ''}" data-act="${post ? 'pick' : 'new-post'}" data-id="${post ? post.id : ''}" data-date="${d}" aria-label="${label(d)}${post ? ' · P' + post.number + ' ' + esc(post.title) : ' · agregar publicación'}">
       <span class="hd"><span class="wd">${WD[dd.getUTCDay()]}</span><span class="n">${dd.getUTCDate()}</span></span>
-      ${post ? `<span class="chip">${post.media[0] && !post.media[0].video ? `<img src="${esc(post.media[0].url)}" alt="" loading="lazy">` : `<span class="noimg">${esc(post.title)}</span>`}<span class="lb"><i style="background:${stc(post.status)}"></i>P${post.number}<span class="k"> · ${KIND[post.kind]}</span></span></span>` : '<span class="add">+</span>'}</button>`; }).join('');
+      ${post ? `<span class="chip">${post.media[0] && !post.media[0].video ? `<img src="${esc(post.media[0].url)}" alt="" loading="lazy">` : `<span class="noimg">${esc(post.title)}</span>`}<span class="lb"><i style="background:${stc(post.status)}"></i>P${post.number}<span class="k"> · ${KIND[post.kind]}</span></span></span>` : '<span class="add">+</span>'}</button>
+      <div class="hlane">${hs.map((h) => `<button class="hchip ${h.id === app.sel ? 'on' : ''}" data-act="pick" data-id="${h.id}" title="${code(h)} · ${esc(h.title)} · ${ST[h.status]}"><i style="background:${stc(h.status)}"></i>${code(h)}<span> · ${esc(h.title)}</span></button>`).join('')}<button class="hadd" data-act="new-story" data-date="${d}" aria-label="Agregar historia el ${label(d)}">+ historia</button></div></div>`; }).join('');
   // grid del perfil: lo publicado + lo programado hasta el fin del periodo
   const fd = feed(p), grid = fd.list;
   const c = app.client;
@@ -307,7 +316,7 @@ function parrilla() {
         <div class="seg" role="group" aria-label="Periodo">${['semana', 'quincena', 'mes'].map((t) => `<button class="${app.per.type === t ? 'on' : ''}" data-act="per-type" data-v="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
         <div class="range"><button data-act="per-shift" data-v="-1" aria-label="Periodo anterior">‹</button><span>${periodLabel(app.per.type, p)}</span><button data-act="per-shift" data-v="1" aria-label="Periodo siguiente">›</button></div>
       </div>
-      <div class="row" style="gap:16px"><div class="seg vseg" role="group" aria-label="Vista de la parrilla"><button class="${app.pview !== 'lista' ? 'on' : ''}" data-act="pview" data-v="cal">${ic('grid')}Calendario</button><button class="${app.pview === 'lista' ? 'on' : ''}" data-act="pview" data-v="lista">${ic('list')}Lista</button></div><button class="btn sm" data-act="present">${ic('play')}Presentar</button><div class="progress"><span><b>${ready}</b> de ${inP.length} listas para enviar</span><span class="bar" title="${order.filter(cnt).map((s) => cnt(s) + ' ' + ST[s].toLowerCase()).join(' · ')}">${bar}</span></div></div>
+      <div class="row" style="gap:16px"><div class="seg vseg" role="group" aria-label="Vista de la parrilla"><button class="${app.pview !== 'lista' ? 'on' : ''}" data-act="pview" data-v="cal">${ic('grid')}Calendario</button><button class="${app.pview === 'lista' ? 'on' : ''}" data-act="pview" data-v="lista">${ic('list')}Lista</button></div><button class="btn sm" data-act="present">${ic('play')}Presentar</button><span class="hgoal ${hWeek >= goal ? 'ok' : ''}" title="Historias con fecha en la semana del ${label(wk.start)} al ${label(wk.end)}">Historias esta semana <b>${hWeek} de ${goal}</b></span><div class="progress"><span><b>${ready}</b> de ${inP.length} listas para enviar</span><span class="bar" title="${order.filter(cnt).map((s) => cnt(s) + ' ' + ST[s].toLowerCase()).join(' · ')}">${bar}</span></div></div>
     </div>
     ${app.pview === 'lista' ? '' : `<section class="cal" aria-label="Calendario del periodo">${cal}</section>`}
     <div class="mswitch seg" role="group" aria-label="Vista"><button class="${app.mview !== 'prev' ? 'on' : ''}" data-act="mview" data-v="edit">Publicación</button><button class="${app.mview === 'prev' ? 'on' : ''}" data-act="mview" data-v="prev">${app.pview === 'lista' ? 'Lista' : 'Vista previa'}</button></div>
@@ -325,15 +334,16 @@ function postTable() {
   if (app.pfilter === 'pendientes') list = list.filter((x) => x.status !== 'pub');
   if (app.pfilter === 'proximas') list = list.filter((x) => x.status !== 'pub' && x.publish_on && x.publish_on >= t);
   if (app.pfilter === 'publicadas') list = list.filter((x) => x.status === 'pub');
+  if (app.pfilter === 'historias') list = list.filter(isH); else if (app.pfilter !== 'todas') list = list.filter((x) => !isH(x));
   const by = { num: (a, b) => a.number - b.number, fecha: (a, b) => (a.publish_on || '9999').localeCompare(b.publish_on || '9999') || a.number - b.number, estatus: (a, b) => ST_ORDER.indexOf(a.status) - ST_ORDER.indexOf(b.status) || a.number - b.number };
   list.sort(by[app.psort] || by.num);
   const th = (k, l) => `<th><button class="${app.psort === k ? 'on' : ''}" data-act="psort" data-v="${k}">${l}${app.psort === k ? ' ↓' : ''}</button></th>`;
-  const F = [['todas', 'Todas'], ['pendientes', 'Sin publicar'], ['proximas', 'Próximas'], ['publicadas', 'Publicadas']];
+  const F = [['todas', 'Todas'], ['pendientes', 'Sin publicar'], ['proximas', 'Próximas'], ['publicadas', 'Publicadas'], ['historias', 'Historias']];
   const rows = list.map((x) => { const m = x.media[0], o = member(x.owner), late = x.status !== 'pub' && x.publish_on && x.publish_on < t;
     return `<tr class="${x.id === app.sel ? 'sel' : ''}" data-act="pick" data-id="${x.id}" tabindex="0">
-      <td class="pn">P${String(x.number).padStart(2, '0')}</td>
+      <td class="pn">${code(x)}</td>
       <td class="th">${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy">`) : '<span class="noimg"></span>'}</td>
-      <td class="tt"><b>${esc(x.title)}</b><span class="dim">${x.media.length} archivo${x.media.length === 1 ? '' : 's'}${x.copy ? ' · copy listo' : ' · <span style="color:var(--prod)">sin copy</span>'}${x.comments ? ` · ${x.comments} comentario${x.comments === 1 ? '' : 's'}` : ''}</span></td>
+      <td class="tt"><b>${esc(x.title)}</b><span class="dim">${x.media.length} archivo${x.media.length === 1 ? '' : 's'}${isH(x) ? ` · ${HTYPE[(x.extra || {}).type] || 'Historia'}${(x.extra || {}).bank ? ' · ' + esc(x.extra.bank) : ''}` : x.copy ? ' · copy listo' : ' · <span style="color:var(--prod)">sin copy</span>'}${x.comments ? ` · ${x.comments} comentario${x.comments === 1 ? '' : 's'}` : ''}</span></td>
       <td>${KIND[x.kind]}</td>
       <td class="fe ${late ? 'late' : ''}">${x.publish_on ? `${WD[D(x.publish_on).getUTCDay()]} ${label(x.publish_on)}` : '<span class="dim">Sin fecha</span>'}</td>
       <td><span class="pill" style="color:${stc(x.status)}"><span class="dot"></span>${ST[x.status]}</span></td>
@@ -346,9 +356,9 @@ function postTable() {
 
 // Feed con filas completas: si faltan, se completan con las siguientes publicaciones.
 function feed(p) {
-  const base = app.posts.filter((x) => x.status === 'pub' || (x.publish_on && x.publish_on <= p.end));
+  const base = app.posts.filter((x) => !isH(x) && (x.status === 'pub' || (x.publish_on && x.publish_on <= p.end)));
   const need = (3 - (base.length % 3)) % 3;
-  const next = app.posts.filter((x) => x.status !== 'pub' && x.publish_on && x.publish_on > p.end).sort((a, b) => a.publish_on.localeCompare(b.publish_on)).slice(0, need).reverse().map((x) => ({ ...x, _next: true }));
+  const next = app.posts.filter((x) => !isH(x) && x.status !== 'pub' && x.publish_on && x.publish_on > p.end).sort((a, b) => a.publish_on.localeCompare(b.publish_on)).slice(0, need).reverse().map((x) => ({ ...x, _next: true }));
   return { list: [...next, ...base], ph: need - next.length };
 }
 const phTiles = (n) => '<span class="tile ph"><span class="noimg">Próxima</span></span>'.repeat(Math.max(0, n));
@@ -364,12 +374,13 @@ function tile(x) {
 function inspector() {
   const d = app.detail;
   if (!d) return '<div class="empty">Elige una publicación del calendario o del perfil.</div>';
-  const flow = ['borrador', 'prod', 'lista', 'aprob', 'ok', 'pub'];
+  const h = isH(d), ex = d.extra || {};
+  const flow = h ? ['borrador', 'prod', 'lista', 'pub'] : ['borrador', 'prod', 'lista', 'aprob', 'ok', 'pub'];
   const ci = d.status === 'cambio' ? flow.indexOf('aprob') : flow.indexOf(d.status);
   const tabs = [['contenido', 'Contenido'], ['comentarios', 'Comentarios' + (d.comments.length ? `<span class="ct">${d.comments.length}</span>` : '')], ['historial', 'Historial']];
   let body = '';
   if (app.ptab === 'contenido') body = `<div class="ibody">
-    <div class="between mtools"><span class="lbl">Material${d.media.length ? `<span class="dim" style="font-weight:500;margin-left:8px">${d.media.length} archivo${d.media.length === 1 ? '' : 's'}</span>` : ''}</span><div class="row"><label class="btn sm" for="file">${ic('up')}Subir</label><button class="btn sm" data-act="slides">${ic('layers')}Diseñar slides${d.design && d.design.slides && d.design.slides.length ? `<span class="ct">${d.design.slides.length}</span>` : ''}</button><button class="btn sm" data-act="pano">${ic('pano')}Panorámica a carrusel</button></div></div>
+    <div class="between mtools"><span class="lbl">Material${d.media.length ? `<span class="dim" style="font-weight:500;margin-left:8px">${d.media.length} archivo${d.media.length === 1 ? '' : 's'}</span>` : ''}</span><div class="row"><label class="btn sm" for="file">${ic('up')}Subir</label><button class="btn sm" data-act="slides">${ic('layers')}Diseñar slides${d.design && d.design.slides && d.design.slides.length ? `<span class="ct">${d.design.slides.length}</span>` : ''}</button>${h ? '' : `<button class="btn sm" data-act="pano">${ic('pano')}Panorámica a carrusel</button>`}</div></div>
     <div class="media" id="drop">${d.media.map((m, i) => `<div class="m">${m.video ? `<video src="${esc(m.url)}" controls muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`}<span class="pos">${i + 1}</span><button data-act="del-media" data-id="${m.id}" aria-label="Quitar archivo">${ic('x')}</button>${d.media.length > 1 ? `<span class="mv">${i ? `<button data-act="mv-media" data-id="${m.id}" data-dir="-1" aria-label="Mover a la izquierda">${ic('left')}</button>` : ''}${i < d.media.length - 1 ? `<button data-act="mv-media" data-id="${m.id}" data-dir="1" aria-label="Mover a la derecha">${ic('right')}</button>` : ''}</span>` : ''}</div>`).join('')}
       <label class="up" for="file">${ic('up')}<span>Subir material</span><span class="dim" style="font-size:11px">Foto o video · arrastra aquí</span></label><input id="file" type="file" accept="image/*,video/*" multiple class="sr"></div>
     <div class="fields">
@@ -378,10 +389,16 @@ function inspector() {
       <label>Responsable<select data-field="owner"><option value="">—</option>${app.me.members.map((m) => `<option value="${m.id}" ${m.id === d.owner ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
       <label>Ubicación<input data-field="location" value="${esc(d.location)}"></label>
     </div>
+    ${h ? `<div class="fields">
+      <label>Tipo<select data-extra="type">${Object.entries(HTYPE).map(([k, v]) => `<option value="${k}" ${ex.type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label>Destacada<select data-extra="highlight"><option value="">No se guarda</option>${app.client.highlights.map((x) => `<option ${ex.highlight === x.label ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}${ex.highlight && !app.client.highlights.some((x) => x.label === ex.highlight) ? `<option selected>${esc(ex.highlight)}</option>` : ''}</select></label>
+      <label style="grid-column:1/-1">Tomas del banco de media<input data-extra="bank" value="${esc(ex.bank || '')}" placeholder="Ej. C3383, C3344"></label>
+      <label style="grid-column:1/-1">Se agrega en Instagram<input data-extra="ig" value="${esc(ex.ig || '')}" placeholder="Música, sticker de ubicación, link, encuesta…"></label>
+    </div>` : ''}
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div class="lbl"><label for="copy">Copy</label><span class="dim"><span id="cl">${d.copy.length}</span> / 2,200</span></div>
-      <textarea id="copy" class="copy" data-field="copy" rows="5" placeholder="Escribe el texto de la publicación…">${esc(d.copy)}</textarea>
-      ${agentOn('copy') ? `<div class="row"><button class="btn sm agentb" data-act="ai">${ic('pen')}Proponer copys</button><span class="dim" style="font-size:12px">Redactor de copys · usa el tono de la ficha de marca</span></div>` : ''}
+      <div class="lbl"><label for="copy">${h ? 'Texto en pantalla o guion' : 'Copy'}</label><span class="dim"><span id="cl">${d.copy.length}</span> / 2,200</span></div>
+      <textarea id="copy" class="copy" data-field="copy" rows="${h ? 3 : 5}" placeholder="${h ? 'Lo que dice la historia, si lleva texto…' : 'Escribe el texto de la publicación…'}">${esc(d.copy)}</textarea>
+      ${agentOn('copy') && !h ? `<div class="row"><button class="btn sm agentb" data-act="ai">${ic('pen')}Proponer copys</button><span class="dim" style="font-size:12px">Redactor de copys · usa el tono de la ficha de marca</span></div>` : ''}
       ${app.ai ? `<div class="ai">${app.ai.map((o, i) => `<button data-act="ai-use" data-i="${i}">${esc(o)}</button>`).join('')}</div>` : ''}
     </div>
     <label style="display:flex;flex-direction:column;gap:8px"><span class="lbl">Notas internas</span><textarea data-field="notes" rows="2" placeholder="Solo las ve el equipo">${esc(d.notes)}</textarea></label>
@@ -394,14 +411,14 @@ function inspector() {
   if (app.ptab === 'historial') body = `<div class="ibody hist">${d.history.map((h) => `<div><span>${esc(ago(h.created_at))}</span><span style="color:var(--ink-2)">${esc(h.text)}</span></div>`).join('') || '<span class="mu">Sin movimientos.</span>'}</div>`;
   const fl = flow.map((s, i) => `<button class="${i < ci ? 'done' : ''} ${i === ci ? 'cur' : ''}" style="--c:${stc(d.status === 'cambio' && i === ci ? 'cambio' : s)}" data-act="status" data-v="${s}" aria-pressed="${i === ci}"><span class="o"></span>${d.status === 'cambio' && i === ci ? 'Cambio pedido' : ST[s]}</button>`).join('');
   return `<div class="ihead">
-      <div class="meta"><span class="l"><span class="tag">P${String(d.number).padStart(2, '0')}</span>${KIND[d.kind]}${d.date ? ' · ' + d.date : ''}</span><span class="pill" style="color:${stc(d.status)}"><span class="dot"></span>${ST[d.status]}</span></div>
+      <div class="meta"><span class="l"><span class="tag">${code(d)}</span>${KIND[d.kind]}${d.date ? ' · ' + d.date : ''}</span><span class="pill" style="color:${stc(d.status)}"><span class="dot"></span>${ST[d.status]}</span></div>
       <input class="title" data-field="title" value="${esc(d.title)}" aria-label="Título">
       <div class="flow" role="group" aria-label="Estatus">${fl}</div>
       ${d.status === 'cambio' ? `<div class="alert">El cliente pidió un cambio. Revisa los comentarios y, cuando quede, márcala como lista para reenviarla.</div>` : ''}
     </div>
     <div class="tabs" style="margin:18px 26px 0">${tabs.map(([k, l]) => `<button class="${app.ptab === k ? 'on' : ''}" data-act="ptab" data-v="${k}">${l}</button>`).join('')}</div>
     ${body}
-    <div class="ifoot"><span class="row" style="gap:12px">${d.status !== 'pub' ? `<button class="btn sm ghost danger" data-act="del-post">${ic('trash')}Borrar</button>` : ''}<span id="saved">${d.updated_at ? 'Guardado · ' + ago(d.updated_at) : ''}</span></span><div class="row">${d.status !== 'cambio' && d.status !== 'pub' ? `<button class="btn sm ghost" data-act="status" data-v="cambio">Marcar cambio pedido</button>` : ''}${!['lista', 'aprob', 'ok', 'pub'].includes(d.status) ? `<button class="btn sm pri" data-act="status" data-v="lista">Marcar como lista</button>` : ''}</div></div>`;
+    <div class="ifoot"><span class="row" style="gap:12px">${d.status !== 'pub' ? `<button class="btn sm ghost danger" data-act="del-post">${ic('trash')}Borrar</button>` : ''}<span id="saved">${d.updated_at ? 'Guardado · ' + ago(d.updated_at) : ''}</span></span><div class="row">${!h && d.status !== 'cambio' && d.status !== 'pub' ? `<button class="btn sm ghost" data-act="status" data-v="cambio">Marcar cambio pedido</button>` : ''}${!['lista', 'aprob', 'ok', 'pub'].includes(d.status) ? `<button class="btn sm pri" data-act="status" data-v="lista">Marcar como lista</button>` : ''}</div></div>`;
 }
 
 function envios() {
@@ -434,7 +451,7 @@ function ficha() {
 // ---------- envío ----------
 function openSend() {
   const p = period(app.per.type, app.per.anchor), c = app.client;
-  const inP = app.posts.filter((x) => x.publish_on && x.publish_on >= p.start && x.publish_on <= p.end).sort((a, b) => a.number - b.number);
+  const inP = app.posts.filter((x) => !isH(x) && x.publish_on && x.publish_on >= p.start && x.publish_on <= p.end).sort((a, b) => a.number - b.number);
   const due = add(p.start, -4);
   const el = document.createElement('div'); el.className = 'scrim'; el.id = 'modal';
   el.innerHTML = `<form class="modal" data-form="send" role="dialog" aria-label="Enviar a aprobación">
@@ -508,6 +525,7 @@ document.addEventListener('click', async (e) => {
     else if (a === 'ptab') { app.ptab = t.dataset.v; renderClient(); }
     else if (a === 'status') { await savePost({ status: t.dataset.v }, true); }
     else if (a === 'new-post') { const date = t.dataset.date || null; const d = await api('/clients/' + app.client.id + '/posts', { method: 'POST', body: { title: 'Nueva publicación', publish_on: date } }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = d.id; app.detail = d; app.ptab = 'contenido'; renderClient(); $('.ihead input.title') && $('.ihead input.title').select(); }
+    else if (a === 'new-story') { const date = t.dataset.date || null; const d = await api('/clients/' + app.client.id + '/posts', { method: 'POST', body: { title: 'Nueva historia', kind: 'historia', publish_on: date, extra: { type: 'material' } } }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = d.id; app.detail = d; app.ptab = 'contenido'; app.mview = 'edit'; renderClient(); $('.ihead input.title') && $('.ihead input.title').select(); }
     else if (a === 'present') openPresent();
     else if (a === 'pano') openPano();
     else if (a === 'slides') openSlides();
@@ -515,7 +533,7 @@ document.addEventListener('click', async (e) => {
     else if (a === 'kit-save') { app.client = await api('/clients/' + app.client.id, { method: 'PATCH', body: { brand_kit: kitFromForm() } }); toast('Kit de marca guardado'); }
     else if (a === 'campaign') openCampaign();
     else if (a === 'mv-media') { const ids = app.detail.media.map((m) => m.id), i = ids.indexOf(t.dataset.id), j = i + +t.dataset.dir; [ids[i], ids[j]] = [ids[j], ids[i]]; app.detail = await api('/posts/' + app.sel + '/order', { method: 'POST', body: { ids } }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); }
-    else if (a === 'del-post') { const d = app.detail; if (await askConfirm({ title: `¿Borrar P${d.number} · ${d.title}?`, text: 'Se borran también su material, comentarios y lo que el cliente haya respondido sobre ella. Esto no se puede deshacer.' })) { await api('/posts/' + d.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = null; app.detail = null; const p = period(app.per.type, app.per.anchor); const first = app.posts.filter((x) => x.publish_on >= p.start && x.publish_on <= p.end).sort((x, y) => x.number - y.number)[0] || app.posts[0]; if (first) { app.sel = first.id; app.detail = await api('/posts/' + first.id); } renderClient(); toast('Publicación borrada'); } }
+    else if (a === 'del-post') { const d = app.detail; if (await askConfirm({ title: `¿Borrar ${code(d)} · ${d.title}?`, text: 'Se borran también su material, comentarios y lo que el cliente haya respondido sobre ella. Esto no se puede deshacer.' })) { await api('/posts/' + d.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); app.sel = null; app.detail = null; const p = period(app.per.type, app.per.anchor); const first = app.posts.filter((x) => x.publish_on >= p.start && x.publish_on <= p.end).sort((x, y) => x.number - y.number)[0] || app.posts[0]; if (first) { app.sel = first.id; app.detail = await api('/posts/' + first.id); } renderClient(); toast('Publicación borrada'); } }
     else if (a === 'del-media') { if (await askConfirm({ title: '¿Quitar este archivo?', text: 'Se quita de la publicación y ya no lo verá el cliente.', ok: 'Sí, quitar' })) { app.detail = await api('/media/' + t.dataset.id, { method: 'DELETE' }); app.posts = await api('/clients/' + app.client.id + '/posts'); renderClient(); } }
     else if (a === 'ai') { t.disabled = true; t.textContent = 'Pensando…'; const r = await api('/agents/copy/run', { method: 'POST', body: { post_id: app.sel } }); app.ai = r.options; renderClient(); }
     else if (a === 'ai-use') { const v = app.ai[+t.dataset.i]; app.ai = null; await savePost({ copy: v }, true); }
@@ -536,6 +554,7 @@ document.addEventListener('change', async (e) => {
   const t = e.target;
   if (t.dataset.act === 'task-status') { try { await api('/tasks/' + t.dataset.id, { method: 'PATCH', body: { status: t.value } }); toast('Estatus actualizado'); } catch (err) { toast(err.message); } return; }
   if (t.dataset.field && (t.tagName === 'SELECT' || t.type === 'date')) savePost({ [t.dataset.field]: t.value }, true);
+  if (t.dataset.extra && app.detail) savePost({ extra: { [t.dataset.extra]: t.value } }, t.tagName === 'SELECT');
 });
 document.addEventListener('input', (e) => {
   const t = e.target;
@@ -1022,14 +1041,14 @@ function openSlides() {
   const d = app.detail, c = app.client; if (!d) return;
   const kit = kitOf(c);
   const photos = d.media.filter((m) => !m.video);
-  const S = d.design && d.design.slides && d.design.slides.length ? JSON.parse(JSON.stringify(d.design)) : { ratio: '4:5', slides: [] };
+  const S = d.design && d.design.slides && d.design.slides.length ? JSON.parse(JSON.stringify(d.design)) : { ratio: isH(d) ? '9:16' : '4:5', slides: [] };
   S.slides.forEach((sl) => { if (TPL_OLD[sl.tpl]) { const n = newSlide(sl.tpl, sl.content, sl.bg && sl.bg.photo); Object.assign(sl, n); } });
   let cur = 0, selL = -1, last = null, dirty = false, mode = S.slides.length ? 'simple' : 'ask';
   const aiOn = agentOn('slides');
-  const H = () => (S.ratio === '1:1' ? 1080 : 1350);
+  const H = () => (S.ratio === '1:1' ? 1080 : S.ratio === '9:16' ? 1920 : 1350);
   const el = document.createElement('div'); el.className = 'slides-ed';
-  el.innerHTML = `<div class="sd-bar"><div><span class="eyebrow">${esc(c.name)} · P${d.number} · ${esc(d.title)}</span><b>Slides de diseño</b></div>
-      <div class="row"><div class="seg" id="sd-ratio"><button data-r="4:5">4:5</button><button data-r="1:1">1:1</button></div>
+  el.innerHTML = `<div class="sd-bar"><div><span class="eyebrow">${esc(c.name)} · ${code(d)} · ${esc(d.title)}</span><b>Slides de diseño</b></div>
+      <div class="row"><div class="seg" id="sd-ratio"><button data-r="4:5">4:5</button><button data-r="1:1">1:1</button><button data-r="9:16">9:16</button></div>
       <button class="btn sm" data-s="mode" id="sd-mode"></button>
       <button class="btn sm" data-s="save">Guardar</button><button class="btn sm pri" data-s="export">${ic('up')}Exportar a la publicación</button><button class="iconbtn" data-s="close" aria-label="Cerrar">${ic('x')}</button></div></div>
     <div class="sd-ask" id="sd-ask"></div>
@@ -1047,7 +1066,7 @@ function openSlides() {
       <div class="sd-ex">${ex.map((x) => `<button type="button" data-s="ex">${esc(x)}</button>`).join('')}</div>
       <div class="between"><label class="row mu" style="gap:8px;font-size:13px">Slides <select name="n" style="width:auto"><option value="">Que lo decida la IA</option>${[2, 3, 4, 5, 6, 8].map((n) => `<option>${n}</option>`).join('')}</select></label>
       <div class="row"><button type="button" class="btn ghost" data-s="blank">Empezar en blanco</button><button class="btn pri" ${aiOn ? '' : 'disabled'}>${ic('spark')}Generar</button></div></div>
-      ${aiOn ? `<span class="dim" style="font-size:12px">Usa el kit de marca, el copy y las fotos de P${d.number}. Luego lo ajustas pidiéndolo o a detalle.</span>` : '<span class="dim" style="font-size:12px">Para generarlo con IA prende el agente «Diseñador de carruseles» en Agentes.</span>'}</form>`;
+      ${aiOn ? `<span class="dim" style="font-size:12px">Usa el kit de marca, el copy y las fotos de ${code(d)}. Luego lo ajustas pidiéndolo o a detalle.</span>` : '<span class="dim" style="font-size:12px">Para generarlo con IA prende el agente «Diseñador de carruseles» en Agentes.</span>'}</form>`;
   };
   const row = async () => {
     const r = el.querySelector('#sd-row');
@@ -1184,12 +1203,12 @@ function openSlides() {
         b.disabled = true; b.textContent = 'Exportando…';
         await save();
         const files = [], off = document.createElement('canvas'); off.width = 1080; off.height = H(); const ox = off.getContext('2d');
-        for (let j = 0; j < S.slides.length; j++) { await drawSlide(ox, S.slides[j], kit, H(), c); const blob = await new Promise((r) => off.toBlob(r, 'image/jpeg', 0.92)); files.push(new File([blob], `P${d.number}_slide_${j + 1}.jpg`, { type: 'image/jpeg' })); }
+        for (let j = 0; j < S.slides.length; j++) { await drawSlide(ox, S.slides[j], kit, H(), c); const blob = await new Promise((r) => off.toBlob(r, 'image/jpeg', 0.92)); files.push(new File([blob], `${code(d)}_slide_${j + 1}.jpg`, { type: 'image/jpeg' })); }
         if (ok === 'replace') for (const m of app.detail.media) await api('/media/' + m.id, { method: 'DELETE' });
         const fd = new FormData(); files.forEach((x) => fd.append('file', x));
         app.detail = await api('/posts/' + d.id + '/media', { method: 'POST', body: fd });
         if (S.slides.length > 1 && app.detail.kind === 'foto') app.detail = await api('/posts/' + d.id, { method: 'PATCH', body: { kind: 'carr' } });
-        app.posts = await api('/clients/' + c.id + '/posts'); dirty = false; done(); renderClient(); toast(`${files.length} slides agregados a P${d.number}`);
+        app.posts = await api('/clients/' + c.id + '/posts'); dirty = false; done(); renderClient(); toast(`${files.length} slides agregados a ${code(d)}`);
       }
     } catch (err) { toast(err.message); if (s === 'export') { b.disabled = false; b.innerHTML = `${ic('up')}Exportar a la publicación`; } }
   });

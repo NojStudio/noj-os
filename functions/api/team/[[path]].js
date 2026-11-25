@@ -89,6 +89,7 @@ async function patchClient(env, W, cid, b) {
   const fields = ['name', 'handle', 'services', 'bio', 'location', 'approver_name', 'approver_email', 'brand_tone', 'owner_member'];
   const sets = [], vals = [];
   for (const f of fields) if (f in b) { sets.push(f + '=?'); vals.push(String(b[f] ?? '')); }
+  if ('story_goal' in b) { sets.push('story_goal=?'); vals.push(Math.max(0, Math.min(30, Number(b.story_goal) || 0))); }
   if (b.brand_kit && typeof b.brand_kit === 'object') { sets.push('brand_kit=?'); vals.push(JSON.stringify(b.brand_kit).slice(0, 4000)); }
   if (!sets.length) return json({ ok: true });
   await env.DB.prepare(`UPDATE clients SET ${sets.join(', ')} WHERE id=?`).bind(...vals, cid).run();
@@ -127,7 +128,7 @@ function shapePost(p, media, ncomments = 0) {
   return {
     id: p.id, number: p.number, title: p.title, kind: p.kind, publish_on: p.publish_on, date: dayLabel(p.publish_on),
     status: p.status, status_label: STATUS_LABEL[p.status], copy: p.copy, location: p.location, owner: p.owner_member,
-    notes: p.notes, updated_at: p.updated_at, comments: ncomments,
+    notes: p.notes, updated_at: p.updated_at, comments: ncomments, extra: (() => { try { return p.extra ? JSON.parse(p.extra) : {}; } catch { return {}; } })(),
     media: m.map((x) => ({ id: x.id, url: mediaUrl(x.r2_key), mime: x.mime, video: x.mime.startsWith('video/') })),
   };
 }
@@ -149,8 +150,8 @@ async function createPost(env, W, me, cid, b) {
   const pid = id('p_');
   const kind = KINDS.includes(b.kind) ? b.kind : 'foto';
   await env.DB.prepare(
-    'INSERT INTO posts (id, client_id, number, title, kind, publish_on, status, copy, location, owner_member, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-  ).bind(pid, cid, max.n + 1, String(b.title || 'Nueva publicación').slice(0, 200), kind, /^\d{4}-\d{2}-\d{2}$/.test(b.publish_on || '') ? b.publish_on : null, 'borrador', String(b.copy || '').slice(0, 2200), c.location || '', me.id, String(b.notes || '').slice(0, 4000)).run();
+    'INSERT INTO posts (id, client_id, number, title, kind, publish_on, status, copy, location, owner_member, notes, extra) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+  ).bind(pid, cid, max.n + 1, String(b.title || 'Nueva publicación').slice(0, 200), kind, /^\d{4}-\d{2}-\d{2}$/.test(b.publish_on || '') ? b.publish_on : null, 'borrador', String(b.copy || '').slice(0, 2200), c.location || '', me.id, String(b.notes || '').slice(0, 4000), b.extra && typeof b.extra === 'object' ? JSON.stringify(b.extra).slice(0, 4000) : null).run();
   await logActivity(env, { workspace_id: W, client_id: cid, post_id: pid, actor: me.name, kind: 'post.new', text: `${me.name} creó P${max.n + 1} · ${b.title || 'Nueva publicación'}` });
   return getPost(env, W, pid);
 }
@@ -170,6 +171,7 @@ async function patchPost(env, W, me, pid, b) {
   if (!p) return fail(404, 'Publicación no encontrada');
   const sets = [], vals = [];
   for (const f of ['title', 'copy', 'location', 'notes']) if (f in b) { sets.push(f + '=?'); vals.push(String(b[f] ?? '')); }
+  if (b.extra && typeof b.extra === 'object') { let cur = {}; try { cur = p.extra ? JSON.parse(p.extra) : {}; } catch {} sets.push('extra=?'); vals.push(JSON.stringify({ ...cur, ...b.extra }).slice(0, 4000)); }
   if ('design' in b) { const d = b.design ? JSON.stringify(b.design) : null; if (d && d.length > 200000) return fail(413, 'El diseño es demasiado grande'); sets.push('design=?'); vals.push(d); }
   if ('kind' in b && KINDS.includes(b.kind)) { sets.push('kind=?'); vals.push(b.kind); }
   if ('publish_on' in b) { sets.push('publish_on=?'); vals.push(b.publish_on || null); }
@@ -270,7 +272,7 @@ async function createRequest(env, W, me, cid, b, request) {
   const start = String(b.period_start || ''), end = String(b.period_end || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return fail(400, 'Periodo inválido');
   const ready = (await env.DB.prepare(
-    "SELECT id, number FROM posts WHERE client_id=? AND publish_on BETWEEN ? AND ? AND status IN ('lista','cambio')"
+    "SELECT id, number FROM posts WHERE client_id=? AND kind!='historia' AND publish_on BETWEEN ? AND ? AND status IN ('lista','cambio')"
   ).bind(cid, start, end).all()).results;
   if (!ready.length) return fail(400, 'No hay publicaciones listas en ese periodo.');
   const rid = id('r_'), tk = token();
