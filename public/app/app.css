@@ -719,3 +719,25 @@ select option,select optgroup{background-color:var(--card);color:var(--ink)}
 .sd-card{width:min(260px,64vw)}
 .sd-card.add{align-self:center;height:200px;width:140px}
 @media (max-width:900px){.sd-row{padding:16px}.sd-prompt{margin:0 12px 8px}.sd-msg{margin:0 16px 12px}}
+
+/* ===== Parrilla en lista ===== */
+.work.listmode{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.ptable{padding:0;overflow:hidden;align-self:start}
+.ptbar{padding:14px 16px;border-bottom:1px solid var(--ln);gap:10px;flex-wrap:wrap}
+.ptwrap{overflow-x:auto}
+.ptable table{width:100%;border-collapse:collapse;font-size:13.5px}
+.ptable th{text-align:left;font:500 12px var(--f);color:var(--mu);padding:10px 12px;border-bottom:1px solid var(--ln);white-space:nowrap}
+.ptable th button{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}.ptable th button.on{color:var(--ink);font-weight:600}
+.ptable td{padding:10px 12px;border-bottom:1px solid var(--ln);vertical-align:middle;white-space:nowrap}
+.ptable tbody tr{cursor:pointer;transition:background .12s}
+.ptable tbody tr:hover{background:var(--hover)}
+.ptable tbody tr.sel{background:var(--tint)}
+.ptable td.pn{font-weight:600;color:var(--mu);font-variant-numeric:tabular-nums}
+.ptable td.th{width:52px;padding-right:0}
+.ptable td.th img,.ptable td.th video,.ptable td.th .noimg{width:40px;height:50px;object-fit:cover;border-radius:6px;display:block;background:var(--sunk)}
+.ptable td.tt{white-space:normal;min-width:180px}.ptable td.tt b{display:block;font-weight:600}.ptable td.tt .dim{font-size:12px}
+.ptable td.fe.late{color:var(--cambio)}
+.ptable .pill{font-size:11.5px!important;padding:4px 9px}
+@media (max-width:900px){.work.listmode.medit .ptable{display:none}.work.listmode.mprev .insp{display:none}.ptable td:nth-child(4),.ptable th:nth-child(4),.ptable td:nth-child(7),.ptable th:nth-child(7){display:none}}
+.vseg button{display:inline-flex;align-items:center;gap:6px}.vseg .i{width:15px;height:15px}
+.work.listmode{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}

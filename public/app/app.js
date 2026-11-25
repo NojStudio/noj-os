@@ -80,7 +80,7 @@ const toast = (m) => { const t = $('#toast'); t.textContent = m; t.classList.add
 const avatar = (m, size = 28) => m ? `<span class="avs" title="${esc(m.name)}" style="width:${size}px;height:${size}px;background:color-mix(in srgb, ${m.color} 28%, var(--panel));color:color-mix(in srgb, ${m.color} 45%, var(--ink))">${esc(m.initials)}</span>` : '';
 
 // ---------- estado ----------
-const app = { me: null, view: null, client: null, posts: [], sel: null, detail: null, per: { type: 'quincena', anchor: null }, clean: false, ptab: 'contenido', ctab: 'parrilla', tasks: [], requests: [], ai: null, reply: null, nudge: null, agents: [], agentsOn: {} };
+const app = { pview: (() => { try { return localStorage.getItem('nojos_pview') || 'cal'; } catch { return 'cal'; } })(), psort: 'num', pfilter: 'todas', me: null, view: null, client: null, posts: [], sel: null, detail: null, per: { type: 'quincena', anchor: null }, clean: false, ptab: 'contenido', ctab: 'parrilla', tasks: [], requests: [], ai: null, reply: null, nudge: null, agents: [], agentsOn: {} };
 const setTheme = (t) => { document.documentElement.dataset.theme = t; try { localStorage.setItem('nojos_theme', t); } catch {} };
 const member = (id) => app.me.members.find((m) => m.id === id);
 const agentOn = (id) => !!app.agentsOn[id];
@@ -307,14 +307,41 @@ function parrilla() {
         <div class="seg" role="group" aria-label="Periodo">${['semana', 'quincena', 'mes'].map((t) => `<button class="${app.per.type === t ? 'on' : ''}" data-act="per-type" data-v="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div>
         <div class="range"><button data-act="per-shift" data-v="-1" aria-label="Periodo anterior">‹</button><span>${periodLabel(app.per.type, p)}</span><button data-act="per-shift" data-v="1" aria-label="Periodo siguiente">›</button></div>
       </div>
-      <div class="row" style="gap:16px"><button class="btn sm" data-act="present">${ic('play')}Presentar</button><div class="progress"><span><b>${ready}</b> de ${inP.length} listas para enviar</span><span class="bar" title="${order.filter(cnt).map((s) => cnt(s) + ' ' + ST[s].toLowerCase()).join(' · ')}">${bar}</span></div></div>
+      <div class="row" style="gap:16px"><div class="seg vseg" role="group" aria-label="Vista de la parrilla"><button class="${app.pview !== 'lista' ? 'on' : ''}" data-act="pview" data-v="cal">${ic('grid')}Calendario</button><button class="${app.pview === 'lista' ? 'on' : ''}" data-act="pview" data-v="lista">${ic('list')}Lista</button></div><button class="btn sm" data-act="present">${ic('play')}Presentar</button><div class="progress"><span><b>${ready}</b> de ${inP.length} listas para enviar</span><span class="bar" title="${order.filter(cnt).map((s) => cnt(s) + ' ' + ST[s].toLowerCase()).join(' · ')}">${bar}</span></div></div>
     </div>
-    <section class="cal" aria-label="Calendario del periodo">${cal}</section>
-    <div class="mswitch seg" role="group" aria-label="Vista"><button class="${app.mview !== 'prev' ? 'on' : ''}" data-act="mview" data-v="edit">Publicación</button><button class="${app.mview === 'prev' ? 'on' : ''}" data-act="mview" data-v="prev">Vista previa</button></div>
-    <div class="work ${app.mview === 'prev' ? 'mprev' : 'medit'}">
-      <section class="prev" aria-label="Vista previa en Instagram"><div class="between"><span class="eyebrow">Así se verá en Instagram</span><button class="switch ${app.clean ? 'on' : ''}" data-act="clean">Vista limpia<i></i></button></div>${phone}</section>
+    ${app.pview === 'lista' ? '' : `<section class="cal" aria-label="Calendario del periodo">${cal}</section>`}
+    <div class="mswitch seg" role="group" aria-label="Vista"><button class="${app.mview !== 'prev' ? 'on' : ''}" data-act="mview" data-v="edit">Publicación</button><button class="${app.mview === 'prev' ? 'on' : ''}" data-act="mview" data-v="prev">${app.pview === 'lista' ? 'Lista' : 'Vista previa'}</button></div>
+    <div class="work ${app.pview === 'lista' ? 'listmode' : ''} ${app.mview === 'prev' ? 'mprev' : 'medit'}">
+      ${app.pview === 'lista' ? postTable() : `<section class="prev" aria-label="Vista previa en Instagram"><div class="between"><span class="eyebrow">Así se verá en Instagram</span><button class="switch ${app.clean ? 'on' : ''}" data-act="clean">Vista limpia<i></i></button></div>${phone}</section>`}
       <section class="insp card" aria-label="Publicación seleccionada">${inspector()}</section>
     </div></div>`;
+}
+
+// Vista de lista: todas las publicaciones del cliente en orden, como tabla.
+const ST_ORDER = ['borrador', 'prod', 'lista', 'cambio', 'aprob', 'ok', 'pub'];
+function postTable() {
+  let list = app.posts.slice();
+  const t = today();
+  if (app.pfilter === 'pendientes') list = list.filter((x) => x.status !== 'pub');
+  if (app.pfilter === 'proximas') list = list.filter((x) => x.status !== 'pub' && x.publish_on && x.publish_on >= t);
+  if (app.pfilter === 'publicadas') list = list.filter((x) => x.status === 'pub');
+  const by = { num: (a, b) => a.number - b.number, fecha: (a, b) => (a.publish_on || '9999').localeCompare(b.publish_on || '9999') || a.number - b.number, estatus: (a, b) => ST_ORDER.indexOf(a.status) - ST_ORDER.indexOf(b.status) || a.number - b.number };
+  list.sort(by[app.psort] || by.num);
+  const th = (k, l) => `<th><button class="${app.psort === k ? 'on' : ''}" data-act="psort" data-v="${k}">${l}${app.psort === k ? ' ↓' : ''}</button></th>`;
+  const F = [['todas', 'Todas'], ['pendientes', 'Sin publicar'], ['proximas', 'Próximas'], ['publicadas', 'Publicadas']];
+  const rows = list.map((x) => { const m = x.media[0], o = member(x.owner), late = x.status !== 'pub' && x.publish_on && x.publish_on < t;
+    return `<tr class="${x.id === app.sel ? 'sel' : ''}" data-act="pick" data-id="${x.id}" tabindex="0">
+      <td class="pn">P${String(x.number).padStart(2, '0')}</td>
+      <td class="th">${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="" loading="lazy">`) : '<span class="noimg"></span>'}</td>
+      <td class="tt"><b>${esc(x.title)}</b><span class="dim">${x.media.length} archivo${x.media.length === 1 ? '' : 's'}${x.copy ? ' · copy listo' : ' · <span style="color:var(--prod)">sin copy</span>'}${x.comments ? ` · ${x.comments} comentario${x.comments === 1 ? '' : 's'}` : ''}</span></td>
+      <td>${KIND[x.kind]}</td>
+      <td class="fe ${late ? 'late' : ''}">${x.publish_on ? `${WD[D(x.publish_on).getUTCDay()]} ${label(x.publish_on)}` : '<span class="dim">Sin fecha</span>'}</td>
+      <td><span class="pill" style="color:${stc(x.status)}"><span class="dot"></span>${ST[x.status]}</span></td>
+      <td>${o ? avatar(o, 24) : ''}</td></tr>`; }).join('');
+  return `<section class="card ptable" aria-label="Lista de publicaciones">
+    <div class="between ptbar"><div class="seg" role="group" aria-label="Filtro">${F.map(([k, l]) => `<button class="${app.pfilter === k ? 'on' : ''}" data-act="pfilter" data-v="${k}">${l}</button>`).join('')}</div><span class="dim">${list.length} publicacion${list.length === 1 ? '' : 'es'}</span></div>
+    <div class="ptwrap"><table><thead><tr>${th('num', 'No.')}<th></th><th>Publicación</th><th>Formato</th>${th('fecha', 'Fecha')}${th('estatus', 'Estatus')}<th>Resp.</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="7" class="empty">No hay publicaciones con ese filtro.</td></tr>'}</tbody></table></div></section>`;
 }
 
 // Feed con filas completas: si faltan, se completan con las siguientes publicaciones.
@@ -464,7 +491,7 @@ document.addEventListener('click', async (e) => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act;
   try {
-    if (a === 'pick') { if (t.classList.contains('tile') && matchMedia('(max-width:900px)').matches) app.mview = 'edit'; app.sel = t.dataset.id; app.ai = null; app.reply = null; app.detail = await api('/posts/' + app.sel); renderClient(); }
+    if (a === 'pick') { if ((t.classList.contains('tile') || t.tagName === 'TR') && matchMedia('(max-width:900px)').matches) app.mview = 'edit'; app.sel = t.dataset.id; app.ai = null; app.reply = null; app.detail = await api('/posts/' + app.sel); renderClient(); }
     else if (a === 'qa') { const go = t.dataset.go, c0 = app.me.clients[0];
       if (go === 'agents') location.hash = '#/agentes';
       else if (go === 'task') { location.hash = '#/pendientes'; setTimeout(() => $('.newtask input') && $('.newtask input').focus(), 600); }
@@ -472,6 +499,9 @@ document.addEventListener('click', async (e) => {
     else if (a === 'theme') { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); route(); }
     else if (a === 'menu') { $('.shell').classList.toggle('navopen'); }
     else if (a === 'mview') { app.mview = t.dataset.v; renderClient(); }
+    else if (a === 'pview') { app.pview = t.dataset.v; app.mview = 'prev'; try { localStorage.setItem('nojos_pview', app.pview); } catch {} renderClient(); }
+    else if (a === 'psort') { app.psort = t.dataset.v; renderClient(); }
+    else if (a === 'pfilter') { app.pfilter = t.dataset.v; renderClient(); }
     else if (a === 'per-type') { app.per.type = t.dataset.v; try { localStorage.setItem('nojos_per', app.per.type); } catch {} renderClient(); }
     else if (a === 'per-shift') { const p = period(app.per.type, app.per.anchor); app.per.anchor = +t.dataset.v > 0 ? add(p.end, 1) : add(p.start, -1); renderClient(); }
     else if (a === 'clean') { app.clean = !app.clean; try { localStorage.setItem('nojos_clean', app.clean ? '1' : '0'); } catch {} renderClient(); }
