@@ -161,7 +161,7 @@ async function loadHoy() {
   const hello = new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches';
   const hoyT = open.filter((t) => t.bucket === 'hoy'), rest = open.filter((t) => t.bucket !== 'hoy');
   const inner = `<div class="page">
-    <div class="hello"><h1 class="h1">${hello}, ${esc(app.me.member.name.split(' ')[0])} <span aria-hidden="true">👋</span></h1><p class="lede">${WD[d.getUTCDay()]} ${d.getUTCDate()} de ${MESL[d.getUTCMonth()].toLowerCase()} · ${mine.length ? `tienes ${mine.length} pendiente${mine.length === 1 ? '' : 's'} a tu nombre` : 'no tienes pendientes a tu nombre'}${waiting.length ? ` y ${waiting.length} esperando a clientes` : ''}.</p></div>
+    <div class="hello"><h1 class="h1">${hello}, ${esc(app.me.member.name.split(' ')[0])}</h1><p class="lede">${WD[d.getUTCDay()]} ${d.getUTCDate()} de ${MESL[d.getUTCMonth()].toLowerCase()} · ${mine.length ? `tienes ${mine.length} pendiente${mine.length === 1 ? '' : 's'} a tu nombre` : 'no tienes pendientes a tu nombre'}${waiting.length ? ` y ${waiting.length} esperando a clientes` : ''}.</p></div>
     <div class="dash"><div>
       <section class="card">${cardH('bolt', 'Acciones rápidas')}
         <div class="qa">
