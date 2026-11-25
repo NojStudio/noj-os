@@ -13,6 +13,7 @@ export async function onRequest(ctx) {
   const W = auth.workspace.id;
   const me = auth.member;
   try {
+    if (seg[0] === 'bank' && seg[1] === 'file') return bankFile(env, request, seg.slice(2).join('/'));
     const literal = ['activity'].includes(seg[0]);
     const route = `${method} /${seg.map((s, i) => (i % 2 === 1 && !literal ? ':' : s)).join('/')}`;
     const p1 = seg[1];
@@ -21,6 +22,11 @@ export async function onRequest(ctx) {
       case 'GET /clients/:': return getClient(env, W, p1);
       case 'PATCH /clients/:': return patchClient(env, W, p1, await body(request));
       case 'POST /clients/:/avatar': return uploadAvatar(env, W, p1, request);
+      case 'POST /clients/:/logo': return uploadLogo(env, W, p1, request);
+      case 'POST /posts/:/asset': return postAsset(env, W, p1, request);
+      case 'GET /bank': return listBank(env, W);
+      case 'PATCH /bank/:': return patchBank(env, W, p1, await body(request));
+      case 'POST /bank/:': return p1 === 'tag' ? tagBank(env, W, me, request, await body(request)) : fail(404, 'Ruta no encontrada');
       case 'GET /clients/:/posts': return listPosts(env, W, p1);
       case 'POST /clients/:/posts': return createPost(env, W, me, p1, await body(request));
       case 'GET /clients/:/requests': return listRequests(env, W, p1, request);
@@ -73,7 +79,8 @@ async function getClient(env, W, cid) {
   if (!c) return fail(404, 'Cliente no encontrado');
   const hl = (await env.DB.prepare('SELECT id, label, image_key FROM highlights WHERE client_id=? ORDER BY position').bind(cid).all()).results
     .map((h) => ({ id: h.id, label: h.label, image: mediaUrl(h.image_key) }));
-  return json({ ...c, avatar: mediaUrl(c.avatar_key), highlights: hl });
+  let kit = null; try { kit = c.brand_kit ? JSON.parse(c.brand_kit) : null; } catch {}
+  return json({ ...c, brand_kit: kit, avatar: mediaUrl(c.avatar_key), highlights: hl });
 }
 
 async function patchClient(env, W, cid, b) {
@@ -82,6 +89,7 @@ async function patchClient(env, W, cid, b) {
   const fields = ['name', 'handle', 'services', 'bio', 'location', 'approver_name', 'approver_email', 'brand_tone', 'owner_member'];
   const sets = [], vals = [];
   for (const f of fields) if (f in b) { sets.push(f + '=?'); vals.push(String(b[f] ?? '')); }
+  if (b.brand_kit && typeof b.brand_kit === 'object') { sets.push('brand_kit=?'); vals.push(JSON.stringify(b.brand_kit).slice(0, 4000)); }
   if (!sets.length) return json({ ok: true });
   await env.DB.prepare(`UPDATE clients SET ${sets.join(', ')} WHERE id=?`).bind(...vals, cid).run();
   return getClient(env, W, cid);
@@ -153,7 +161,8 @@ async function getPost(env, W, pid) {
   const media = (await env.DB.prepare('SELECT * FROM post_media WHERE post_id=? ORDER BY position').bind(pid).all()).results;
   const comments = (await env.DB.prepare('SELECT id, author_type, author_id, author_name, body, to_client, created_at FROM comments WHERE post_id=? ORDER BY created_at').bind(pid).all()).results;
   const history = (await env.DB.prepare('SELECT actor, text, created_at FROM activity WHERE post_id=? ORDER BY created_at DESC LIMIT 30').bind(pid).all()).results;
-  return json({ ...shapePost(p, media, comments.length), comments, history });
+  let design = null; try { design = p.design ? JSON.parse(p.design) : null; } catch {}
+  return json({ ...shapePost(p, media, comments.length), comments, history, design });
 }
 
 async function patchPost(env, W, me, pid, b) {
@@ -161,6 +170,7 @@ async function patchPost(env, W, me, pid, b) {
   if (!p) return fail(404, 'Publicación no encontrada');
   const sets = [], vals = [];
   for (const f of ['title', 'copy', 'location', 'notes']) if (f in b) { sets.push(f + '=?'); vals.push(String(b[f] ?? '')); }
+  if ('design' in b) { const d = b.design ? JSON.stringify(b.design) : null; if (d && d.length > 200000) return fail(413, 'El diseño es demasiado grande'); sets.push('design=?'); vals.push(d); }
   if ('kind' in b && KINDS.includes(b.kind)) { sets.push('kind=?'); vals.push(b.kind); }
   if ('publish_on' in b) { sets.push('publish_on=?'); vals.push(b.publish_on || null); }
   if ('owner' in b) { sets.push('owner_member=?'); vals.push(b.owner || null); }
@@ -383,7 +393,8 @@ async function runAgent(env, W, me, aid, b) {
   const state = await agentState(env, W);
   if (!state[aid]) return fail(403, `El agente «${a.name}» está apagado en este espacio.`);
   const cp = b.campaign && typeof b.campaign === 'object' ? b.campaign : null;
-  const ctx = { input: { instruction: String(b.instruction || '').slice(0, 500), campaign: cp && {
+  if (a.needs === 'bank') return fail(400, 'Este agente se usa desde el Banco de media.');
+  const ctx = { input: { n: Math.min(10, Math.max(1, Number(b.n) || 5)), instruction: String(b.instruction || '').slice(0, 500), campaign: cp && {
     name: String(cp.name || '').slice(0, 120), goal: String(cp.goal || '').slice(0, 800), start: String(cp.start || ''), end: String(cp.end || ''),
     days: Array.isArray(cp.days) ? cp.days.map(Number).filter((d) => d >= 0 && d <= 6) : [], count: Math.min(30, Math.max(1, Number(cp.count) || 6)),
     mix: String(cp.mix || '').slice(0, 200), notes: String(cp.notes || '').slice(0, 1500) } } };
@@ -411,4 +422,111 @@ async function runAgent(env, W, me, aid, b) {
     await env.DB.prepare('INSERT INTO agent_runs (id, workspace_id, agent_id, member_id, client_id, status) VALUES (?,?,?,?,?,?)').bind(runId, W, aid, me.id, ctx.client.id, 'error').run();
     return fail(e.status || 500, e.message);
   }
+}
+
+// ---------- kit de marca y diseño ----------
+async function uploadLogo(env, W, cid, request) {
+  const c = await clientOf(env, W, cid);
+  if (!c) return fail(404, 'Cliente no encontrado');
+  const form = await request.formData();
+  const { key } = await putFile(env, form.get('file'), `${W}/${cid}/marca`);
+  let kit = {}; try { kit = c.brand_kit ? JSON.parse(c.brand_kit) : {}; } catch {}
+  kit[form.get('slot') === 'logo_light' ? 'logo_light' : 'logo'] = key;
+  await env.DB.prepare('UPDATE clients SET brand_kit=? WHERE id=?').bind(JSON.stringify(kit), cid).run();
+  return getClient(env, W, cid);
+}
+
+// Fotos que usa un diseño: se guardan aparte para que no se pierdan si se cambia el material de la publicación.
+async function postAsset(env, W, pid, request) {
+  const p = await postOf(env, W, pid);
+  if (!p) return fail(404, 'Publicación no encontrada');
+  const folder = `${W}/${p.client_id}/${pid}/diseno`;
+  if ((request.headers.get('content-type') || '').includes('application/json')) {
+    const b = await body(request);
+    const m = await env.DB.prepare('SELECT * FROM post_media WHERE id=? AND post_id=?').bind(String(b.media_id || ''), pid).first();
+    if (!m) return fail(404, 'Archivo no encontrado');
+    if (m.r2_key.startsWith('seed/')) return json({ url: mediaUrl(m.r2_key) });
+    const obj = await env.MEDIA.get(m.r2_key);
+    if (!obj) return fail(404, 'Archivo no encontrado');
+    const key = `${folder}/${id()}.${(m.r2_key.split('.').pop() || 'jpg')}`;
+    await env.MEDIA.put(key, obj.body, { httpMetadata: { contentType: m.mime } });
+    return json({ url: mediaUrl(key) });
+  }
+  const form = await request.formData();
+  const { key } = await putFile(env, form.get('file'), folder);
+  return json({ url: mediaUrl(key) });
+}
+
+// ---------- banco de media ----------
+async function bankFile(env, request, key) {
+  if (!/^[a-z0-9_/-]+\.jpg$/i.test(key) || key.includes('..')) return fail(404, 'No encontrado');
+  const r = await env.ASSETS.fetch(new URL('/_bank/' + key, request.url));
+  if (!r.ok) return fail(404, 'No encontrado');
+  return new Response(r.body, { headers: { 'content-type': 'image/jpeg', 'cache-control': 'private, max-age=604800' } });
+}
+
+const bankRow = (r) => ({
+  id: r.id, client_id: r.client_id, owner: r.owner, device: r.device, kind: r.kind, shoot: r.shoot, file: r.file_name, folder: r.folder,
+  status: r.status, note: r.note, taken_at: r.taken_at, duration: r.duration, width: r.width, height: r.height, fps: r.fps, camera: r.camera,
+  profile: r.profile, orientation: r.orientation, size: r.size, clips: r.clips ? JSON.parse(r.clips) : [], score: r.best_score,
+  preview: r.preview ? '/api/team/bank/file/' + r.preview : null, sheets: r.sheets ? JSON.parse(r.sheets).map((k) => '/api/team/bank/file/' + k) : [],
+  tags: r.tags ? JSON.parse(r.tags) : [], description: r.description || '', people: r.people, moment: r.moment || '', fav: !!r.fav, tagged: !!r.tagged_at,
+});
+
+async function listBank(env, W) {
+  const rows = (await env.DB.prepare('SELECT * FROM bank_items WHERE workspace_id=? ORDER BY shoot, file_name').bind(W).all()).results;
+  return json({ items: rows.map(bankRow) });
+}
+
+async function patchBank(env, W, bid, b) {
+  const r = await env.DB.prepare('SELECT * FROM bank_items WHERE id=? AND workspace_id=?').bind(bid, W).first();
+  if (!r) return fail(404, 'Archivo no encontrado');
+  const sets = [], vals = [];
+  if (Array.isArray(b.tags)) { sets.push('tags=?'); vals.push(JSON.stringify(b.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 30))); }
+  if ('description' in b) { sets.push('description=?'); vals.push(String(b.description || '').slice(0, 500)); }
+  if ('fav' in b) { sets.push('fav=?'); vals.push(b.fav ? 1 : 0); }
+  if (sets.length) await env.DB.prepare(`UPDATE bank_items SET ${sets.join(', ')} WHERE id=?`).bind(...vals, bid).run();
+  return json(bankRow(await env.DB.prepare('SELECT * FROM bank_items WHERE id=?').bind(bid).first()));
+}
+
+function b64(buf) {
+  const u = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+// Etiqueta con IA un lote de tomas a partir de sus hojas de contacto (4 cuadros por toma).
+async function tagBank(env, W, me, request, b) {
+  const a = agentById('etiquetas');
+  const state = await agentState(env, W);
+  if (!state.etiquetas) return fail(403, 'El agente «Etiquetador de media» está apagado en este espacio.');
+  const n = Math.min(6, Math.max(1, Number(b.batch) || 5));
+  const rows = (await env.DB.prepare("SELECT b.*, c.name AS client_name FROM bank_items b LEFT JOIN clients c ON c.id=b.client_id WHERE b.workspace_id=? AND b.tagged_at IS NULL AND b.sheets IS NOT NULL ORDER BY b.shoot, b.file_name LIMIT ?").bind(W, n).all()).results;
+  if (!rows.length) return json({ done: 0, pending: 0 });
+  const images = [];
+  for (const r of rows) {
+    const key = JSON.parse(r.sheets)[0];
+    const res = await env.ASSETS.fetch(new URL('/_bank/' + key, request.url));
+    images.push(res.ok ? b64(await res.arrayBuffer()) : null);
+  }
+  const { prompt, max_tokens } = a.build({ rows, images });
+  const runId = id('run_');
+  let out;
+  try {
+    const { output, usage } = await runModel(env, a, prompt, max_tokens, env.AI_MODEL_FAST || 'claude-haiku-4-5');
+    out = output;
+    await env.DB.prepare('INSERT INTO agent_runs (id, workspace_id, agent_id, member_id, client_id, status, input_tokens, output_tokens) VALUES (?,?,?,?,?,?,?,?)')
+      .bind(runId, W, 'etiquetas', me.id, rows[0].client_id, 'ok', usage.input_tokens || 0, usage.output_tokens || 0).run();
+  } catch (e) { return fail(e.status || 500, e.message); }
+  const items = Array.isArray(out.items) ? out.items : [];
+  if (!items.length) return fail(502, 'El agente no regresó etiquetas. Intenta de nuevo.');
+  const stmts = rows.map((r, i) => {
+    const it = items.find((x) => x && (x.n === i + 1 || x.file === r.file_name)) || items[i] || {};
+    const tags = Array.isArray(it.tags) ? it.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 16) : [];
+    return env.DB.prepare("UPDATE bank_items SET tags=?, description=?, people=?, moment=?, tagged_at=datetime('now') WHERE id=?")
+      .bind(JSON.stringify(tags), String(it.description || '').slice(0, 300), Number.isFinite(+it.people) ? +it.people : null, String(it.moment || '').slice(0, 20), r.id);
+  });
+  await env.DB.batch(stmts);
+  const left = await env.DB.prepare('SELECT count(*) n FROM bank_items WHERE workspace_id=? AND tagged_at IS NULL AND sheets IS NOT NULL').bind(W).first();
+  return json({ done: rows.length, pending: left.n });
 }
