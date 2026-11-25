@@ -196,9 +196,11 @@ const kpi = (l, v, sub, c) => `<div class="kpi"><span class="k"><span class="dot
 const feedItem = (a) => `<div class="it"><span class="dot" style="background:${a.kind.startsWith('request') ? 'var(--aprob)' : a.kind === 'post.status' ? 'var(--lista)' : a.kind === 'request.answered' ? 'var(--cambio)' : 'var(--dim)'}"></span><div class="grow"><span>${esc(a.text)}</span><span class="dim">${esc(ago(a.created_at))}</span></div></div>`;
 function ago(s) { const t = new Date(s.replace(' ', 'T') + 'Z').getTime(), m = Math.round((Date.now() - t) / 60000); if (m < 1) return 'ahora'; if (m < 60) return `hace ${m} min`; const h = Math.round(m / 60); if (h < 24) return `hace ${h} h`; const d = Math.round(h / 24); return d === 1 ? 'ayer' : `hace ${d} días`; }
 
-function taskGroups(list, withClient) {
+function taskGroups(list, withClient, withDone) {
   const G = [['hoy', 'Para hoy', 'var(--lista)'], ['equipo', "Por hacer · No'j", 'var(--prod)'], ['cliente', 'Esperando al cliente', 'var(--aprob)']];
-  return G.map(([k, t, c]) => { const items = list.filter((x) => x.bucket === k); if (!items.length) return '';
+  const isDone = (x) => ['cerrado', 'terminado'].includes(x.status);
+  if (withDone) G.push(['__done', 'Terminados', 'var(--dim)']);
+  return G.map(([k, t, c]) => { const items = list.filter((x) => (k === '__done' ? isDone(x) : x.bucket === k && !(withDone && isDone(x)))); if (!items.length) return '';
     return `<div class="group-h"><span class="t"><span class="dot" style="background:${c}"></span>${t}</span><span class="ct">${items.length}</span></div><div class="list">${items.map((x) => taskRow(x, withClient)).join('')}</div>`; }).join('') || '<div class="empty">Nada pendiente. Buen trabajo.</div>';
 }
 function taskRow(t, withClient) {
@@ -213,17 +215,42 @@ function taskRow(t, withClient) {
 }
 
 // ================= PENDIENTES (todos) =================
+// Filtros reales (persona, cliente, estado, búsqueda); el formulario de alta va aparte, detrás de "Nuevo pendiente".
+const TF = (() => { try { return { show: 'abiertos', who: '', client: '', q: '', ...JSON.parse(localStorage.getItem('nojos_tf') || '{}'), q: '' }; } catch { return { show: 'abiertos', who: '', client: '', q: '' }; } })();
+const saveTF = () => { try { localStorage.setItem('nojos_tf', JSON.stringify({ show: TF.show, who: TF.who, client: TF.client })); } catch {} };
+function filterTasks(list, cid) {
+  const t0 = today(), wq = TF.q.toLowerCase().split(/\s+/).filter(Boolean);
+  const open = (t) => t.status !== 'cerrado';
+  return list.filter((t) => (cid ? t.client_id === cid : !TF.client || (TF.client === '-' ? !t.client_id : t.client_id === TF.client))
+    && (!TF.who || (TF.who === '-' ? !t.assignee : t.assignee === TF.who))
+    && (TF.show === 'abiertos' ? open(t) : TF.show === 'hoy' ? open(t) && (t.bucket === 'hoy' || t.due_on === t0) : TF.show === 'cliente' ? open(t) && t.bucket === 'cliente'
+      : TF.show === 'atrasados' ? open(t) && t.due_on && t.due_on < t0 : TF.show === 'terminados' ? ['cerrado', 'terminado'].includes(t.status) : true)
+    && wq.every((w) => [t.title, t.detail, t.client_name, t.waiting_on].join(' ').toLowerCase().includes(w)));
+}
+function taskBar(cid) {
+  const S = [['abiertos', 'Abiertos'], ['hoy', 'Para hoy'], ['cliente', 'Esperan al cliente'], ['atrasados', 'Atrasados'], ['terminados', 'Terminados'], ['todos', 'Todos']];
+  const base = app.tasks.filter((t) => !cid || t.client_id === cid), n = filterTasks(base, cid).length;
+  return `<section class="card tbar">
+    <div class="row tfil"><div class="seg" role="group" aria-label="Estado">${S.map(([k, l]) => `<button class="${TF.show === k ? 'on' : ''}" data-act="tf" data-k="show" data-v="${k}">${l}</button>`).join('')}</div>
+      <select data-tf="who" aria-label="Persona"><option value="">Todas las personas</option>${app.me.members.map((m) => `<option value="${m.id}" ${TF.who === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}<option value="-" ${TF.who === '-' ? 'selected' : ''}>Sin asignar</option></select>
+      ${cid ? '' : `<select data-tf="client" aria-label="Cliente"><option value="">Todos los clientes</option>${app.me.clients.map((c) => `<option value="${c.id}" ${TF.client === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}<option value="-" ${TF.client === '-' ? 'selected' : ''}>Sin cliente</option></select>`}
+      <label class="tsearch">${ic('search')}<input type="search" data-tf="q" value="${esc(TF.q)}" placeholder="Buscar…"></label></div>
+    <div class="between"><span class="dim" style="font-size:12.5px">${n} pendiente${n === 1 ? '' : 's'}${TF.show !== 'abiertos' || TF.who || TF.client || TF.q ? ` · <button class="linkbtn" data-act="tf-clear">Quitar filtros</button>` : ''}</span><button class="btn sm ${app.tfNew ? '' : 'pri'}" data-act="tf-new">${app.tfNew ? ic('x') + 'Cerrar' : ic('plus') + 'Nuevo pendiente'}</button></div>
+    ${app.tfNew ? `<div class="tnew"><span class="lbl">Nuevo pendiente</span>${taskForm(cid)}</div>` : ''}</section>`;
+}
+const renderTasks = () => { $('#root').innerHTML = shell(`<div class="page"><div class="hello"><span class="eyebrow">Todo el estudio</span><h1 class="h1">Pendientes</h1></div>${taskBar(null)}<section class="card">${taskGroups(filterTasks(app.tasks, null), true, TF.show === 'terminados' || TF.show === 'todos')}</section></div>`, '<b>Pendientes</b>'); };
 async function loadTasks() {
   $('#root').innerHTML = shell('<div class="loading">Cargando…</div>', '<b>Pendientes</b>');
   app.tasks = await api('/tasks');
-  $('#root').innerHTML = shell(`<div class="page"><div class="hello"><span class="eyebrow">Todo el estudio</span><h1 class="h1">Pendientes</h1></div>${taskForm(null)}<section class="card">${taskGroups(app.tasks.filter((t) => t.status !== 'cerrado'), true)}</section></div>`, '<b>Pendientes</b>');
+  renderTasks();
 }
+const rerenderTasks = () => { if (app.view === 'tareas') renderTasks(); else if (app.view === 'cliente') renderClient(); };
 const taskForm = (cid) => `<form class="newtask" data-form="task" data-client="${cid || ''}">
   <input name="title" placeholder="Escribe un pendiente nuevo…" required>
-  <select name="bucket"><option value="equipo">Por hacer · No'j</option><option value="hoy">Para hoy</option><option value="cliente">Espera al cliente</option></select>
-  <select name="assignee"><option value="">Sin asignar</option>${app.me.members.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
-  ${cid ? '' : `<select name="client_id"><option value="">Sin cliente</option>${app.me.clients.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>`}
-  <input name="due_on" type="date" aria-label="Fecha">
+  <label>Lista<select name="bucket"><option value="equipo">Por hacer · No'j</option><option value="hoy">Para hoy</option><option value="cliente">Espera al cliente</option></select></label>
+  <label>Responsable<select name="assignee"><option value="">Sin asignar</option>${app.me.members.map((m) => `<option value="${m.id}" ${m.id === app.me.member.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
+  ${cid ? '' : `<label>Cliente<select name="client_id"><option value="">Sin cliente</option>${app.me.clients.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>`}
+  <label>Fecha<input name="due_on" type="date"></label>
   <button class="btn pri" type="submit">${ic('plus')}Agregar</button></form>`;
 
 // ================= AGENTES =================
@@ -274,7 +301,7 @@ function renderClient() {
     <nav class="tabs">${tabs.map(([k, l]) => `<a href="#/c/${c.id}/${k}" class="${app.ctab === k ? 'on' : ''}">${l}</a>`).join('')}</nav></div>`;
   let body = '';
   if (app.ctab === 'parrilla') body = parrilla();
-  if (app.ctab === 'pendientes') body = `<div class="page">${agentOn('seguimiento') ? `<section class="card"><div class="agent-inline between"><span class="row" style="gap:14px;flex-wrap:nowrap"><span class="mono-mark">Se</span><span><b style="font-weight:500">Seguimiento de pendientes</b><br><span class="mu" style="font-size:13px">Redacta el recordatorio para ${esc(c.approver_name || 'el cliente')} con todo lo que espera su respuesta.</span></span></span><button class="btn sm agentb" data-act="nudge">${ic('pen')}Redactar recordatorio</button></div>${app.nudge ? `<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:10px"><textarea id="nudge" rows="6" class="copy">${esc(app.nudge)}</textarea><div class="row"><button class="btn sm pri" data-act="copy-nudge">${ic('link')}Copiar mensaje</button><span class="dim">Pégalo en WhatsApp o correo</span></div></div>` : ''}</section>` : ''}${taskForm(c.id)}<section class="card">${taskGroups(app.tasks.filter((t) => t.client_id === c.id && t.status !== 'cerrado'), false)}</section></div>`;
+  if (app.ctab === 'pendientes') body = `<div class="page">${agentOn('seguimiento') ? `<section class="card"><div class="agent-inline between"><span class="row" style="gap:14px;flex-wrap:nowrap"><span class="mono-mark">Se</span><span><b style="font-weight:500">Seguimiento de pendientes</b><br><span class="mu" style="font-size:13px">Redacta el recordatorio para ${esc(c.approver_name || 'el cliente')} con todo lo que espera su respuesta.</span></span></span><button class="btn sm agentb" data-act="nudge">${ic('pen')}Redactar recordatorio</button></div>${app.nudge ? `<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:10px"><textarea id="nudge" rows="6" class="copy">${esc(app.nudge)}</textarea><div class="row"><button class="btn sm pri" data-act="copy-nudge">${ic('link')}Copiar mensaje</button><span class="dim">Pégalo en WhatsApp o correo</span></div></div>` : ''}</section>` : ''}${taskBar(c.id)}<section class="card">${taskGroups(filterTasks(app.tasks, c.id), false, TF.show === 'terminados' || TF.show === 'todos')}</section></div>`;
   if (app.ctab === 'envios') body = envios();
   if (app.ctab === 'ficha') body = ficha();
   $('#root').innerHTML = shell(head + body, `<a href="#/hoy">Clientes</a><span class="sep">/</span><b>${esc(c.name)}</b>`);
@@ -511,10 +538,13 @@ document.addEventListener('click', async (e) => {
     if (a === 'pick') { if ((t.classList.contains('tile') || t.tagName === 'TR') && matchMedia('(max-width:900px)').matches) app.mview = 'edit'; app.sel = t.dataset.id; app.ai = null; app.reply = null; app.detail = await api('/posts/' + app.sel); renderClient(); }
     else if (a === 'qa') { const go = t.dataset.go, c0 = app.me.clients[0];
       if (go === 'agents') location.hash = '#/agentes';
-      else if (go === 'task') { location.hash = '#/pendientes'; setTimeout(() => $('.newtask input') && $('.newtask input').focus(), 600); }
+      else if (go === 'task') { app.tfNew = true; location.hash = '#/pendientes'; setTimeout(() => $('.newtask input') && $('.newtask input').focus(), 600); }
       else if (c0) { app.pending = go === 'post' ? 'new-post' : 'open-send'; location.hash = '#/c/' + c0.id; } }
     else if (a === 'theme') { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); route(); }
     else if (a === 'menu') { $('.shell').classList.toggle('navopen'); }
+    else if (a === 'tf') { TF[t.dataset.k] = t.dataset.v; saveTF(); rerenderTasks(); }
+    else if (a === 'tf-clear') { Object.assign(TF, { show: 'abiertos', who: '', client: '', q: '' }); saveTF(); rerenderTasks(); }
+    else if (a === 'tf-new') { app.tfNew = !app.tfNew; rerenderTasks(); if (app.tfNew) setTimeout(() => $('.tnew input[name=title]') && $('.tnew input[name=title]').focus(), 50); }
     else if (a === 'mview') { app.mview = t.dataset.v; renderClient(); }
     else if (a === 'pview') { app.pview = t.dataset.v; app.mview = 'prev'; try { localStorage.setItem('nojos_pview', app.pview); } catch {} renderClient(); }
     else if (a === 'psort') { app.psort = t.dataset.v; renderClient(); }
@@ -564,7 +594,7 @@ document.addEventListener('submit', async (e) => {
   const f = e.target; if (!f.dataset.form) return; e.preventDefault();
   const data = Object.fromEntries(new FormData(f).entries());
   try {
-    if (f.dataset.form === 'task') { if (f.dataset.client) data.client_id = f.dataset.client; await api('/tasks', { method: 'POST', body: data }); toast('Pendiente agregado'); route(); }
+    if (f.dataset.form === 'task') { if (f.dataset.client) data.client_id = f.dataset.client; await api('/tasks', { method: 'POST', body: data }); app.tfNew = false; toast('Pendiente agregado'); route(); }
     if (f.dataset.form === 'comment') { app.detail = await api('/posts/' + app.sel + '/comments', { method: 'POST', body: { body: data.body, to_client: !!data.to_client } }); app.reply = null; renderClient(); }
     if (f.dataset.form === 'client') { app.client = await api('/clients/' + app.client.id, { method: 'PATCH', body: data }); toast('Ficha guardada'); renderClient(); }
     if (f.dataset.form === 'send') {
@@ -1225,3 +1255,6 @@ function openSlides() {
 
 window.__nojDesign = { drawSlide, newSlide, kitOf, ensureFonts };
 boot();
+
+document.addEventListener('change', (e) => { const k = e.target.dataset && e.target.dataset.tf; if (k && k !== 'q') { TF[k] = e.target.value; saveTF(); rerenderTasks(); } });
+document.addEventListener('input', (e) => { const k = e.target.dataset && e.target.dataset.tf; if (k === 'q') { TF.q = e.target.value; clearTimeout(TF._t); TF._t = setTimeout(() => { const pos = e.target.selectionStart; rerenderTasks(); const i = $('[data-tf="q"]'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } }, 200); } });

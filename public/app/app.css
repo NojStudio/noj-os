@@ -755,3 +755,16 @@ select option,select optgroup{background-color:var(--card);color:var(--ink)}
 .daycol:hover .hadd,.hadd:focus-visible{opacity:1}
 @media (hover:none){.hadd{opacity:1}}
 .hgoal{font-size:12.5px;color:var(--mu);white-space:nowrap}.hgoal b{color:var(--prod);font-weight:600}.hgoal.ok b{color:var(--lista)}
+
+/* ===== Pendientes: filtros y alta ===== */
+.tbar{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.tfil{gap:8px;flex-wrap:wrap}.tfil select{width:auto;height:34px;font-size:13px;padding:0 30px 0 10px}
+.tsearch{display:flex;align-items:center;gap:8px;border:1px solid var(--ln2);border-radius:10px;padding:0 10px;height:34px;flex:1 1 180px;background:var(--card)}
+.tsearch .i{width:15px;height:15px;stroke:var(--mu)}.tsearch input{border:0;background:none;height:32px;padding:0;font-size:13px;box-shadow:none;flex:1}.tsearch input:focus{outline:none}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline}
+.tnew{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--ln);padding-top:12px}
+.tnew .newtask{align-items:flex-end;padding:0;border:0;background:none}
+.tnew .newtask label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--mu);flex:0 1 170px}
+.tnew .newtask label select,.tnew .newtask label input{width:100%}
+.tnew .newtask label select,.tnew .newtask label input{flex:none;height:38px}
+.tnew .newtask input[name=title]{flex:1 1 100%;height:42px}
