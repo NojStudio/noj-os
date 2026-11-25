@@ -806,36 +806,43 @@ document.addEventListener('input', (e) => { const k = e.target.dataset && e.targ
 document.addEventListener('change', (e) => { const k = e.target.dataset && e.target.dataset.bk; if (k && k !== 'q') { BK[k] = e.target.value; renderBank(); } });
 
 // ================= KIT DE MARCA =================
-const FONTS = ['Inter', 'DM Sans', 'Montserrat', 'Space Grotesk', 'Archivo', 'Oswald', 'Bebas Neue', 'Fraunces', 'Playfair Display', 'DM Serif Display', 'Cormorant Garamond', 'Newsreader', 'Instrument Serif', 'Libre Caslon Text'];
-const KIT0 = { bg: '#F3EEE6', ink: '#1E1B18', accent: '#9C4A2F', title: 'Fraunces', body: 'Inter', upper: false };
+const FONTS = ['Libre Baskerville', 'Didact Gothic', 'Inter', 'DM Sans', 'Montserrat', 'Jost', 'Space Grotesk', 'Archivo', 'Oswald', 'Bebas Neue', 'Libre Caslon Text', 'Fraunces', 'Playfair Display', 'DM Serif Display', 'Cormorant Garamond', 'Newsreader', 'Instrument Serif'];
+const FONT_AXES = { 'Libre Baskerville': 'ital,wght@0,400;0,700;1,400', 'Libre Caslon Text': 'ital,wght@0,400;0,700;1,400', 'Didact Gothic': '', 'Bebas Neue': '', 'Instrument Serif': 'ital@0;1', 'DM Serif Display': 'ital@0;1', 'Cormorant Garamond': 'ital,wght@0,400;0,600;1,400;1,600', 'Space Grotesk': 'wght@300..700', 'Oswald': 'wght@300..700' };
+const KIT0 = { bg: '#F7F3EE', ink: '#1E1B18', accent: '#B08D57', title: 'Libre Baskerville', body: 'Libre Baskerville', label: 'Didact Gothic', italic: true, upper: false, tagline: '', address: '', guide: '' };
 const kitOf = (c) => ({ ...KIT0, ...(c && c.brand_kit || {}) });
-const fontsLoaded = new Set();
+const LOGOS = [['logo', 'Logo · oscuro'], ['logo_light', 'Logo · claro'], ['lockup', 'Logo completo · oscuro'], ['lockup_light', 'Logo completo · claro']];
+const fontsLoaded = new Set(['Inter']);
 function loadFont(f) {
-  if (fontsLoaded.has(f) || f === 'Inter') return; fontsLoaded.add(f);
+  if (!f || fontsLoaded.has(f)) return; fontsLoaded.add(f);
+  const ax = f in FONT_AXES ? FONT_AXES[f] : 'ital,wght@0,400..700;1,400..700';
   const l = document.createElement('link'); l.rel = 'stylesheet';
-  const w = ['Bebas Neue', 'Instrument Serif', 'DM Serif Display'].includes(f) ? '' : ':wght@400;600;700';
-  l.href = `https://fonts.googleapis.com/css2?family=${f.replace(/ /g, '+')}${w}&display=swap`; document.head.appendChild(l);
+  l.href = `https://fonts.googleapis.com/css2?family=${f.replace(/ /g, '+')}${ax ? ':' + ax : ''}&display=swap`; document.head.appendChild(l);
 }
-async function ensureFonts(kit) { [kit.title, kit.body].forEach(loadFont); await Promise.all([kit.title, kit.body].flatMap((f) => [document.fonts.load(`700 40px "${f}"`), document.fonts.load(`400 40px "${f}"`)])).catch(() => {}); }
+async function ensureFonts(kit) {
+  [kit.title, kit.body, kit.label].forEach(loadFont);
+  await Promise.all([kit.title, kit.body, kit.label].flatMap((f) => [`400 40px "${f}"`, `700 40px "${f}"`, `italic 400 40px "${f}"`].map((s) => document.fonts.load(s)))).catch(() => {});
+}
 function kitCard() {
   const c = app.client, k = kitOf(c);
-  [k.title, k.body].forEach(loadFont);
+  [k.title, k.body, k.label].forEach(loadFont);
   const fsel = (n) => `<select data-kit="${n}">${FONTS.map((f) => `<option ${f === k[n] ? 'selected' : ''}>${f}</option>`).join('')}</select>`;
   const col = (n, l) => `<label class="kcol"><input type="color" data-kit="${n}" value="${esc(k[n])}"><span>${l}<small>${esc(k[n])}</small></span></label>`;
-  return `<section class="card kit" id="kit"><div class="card-h"><span class="t"><span class="hbox">${ic('type')}</span>Kit de marca · para los slides de diseño</span><button class="btn sm pri" data-act="kit-save">Guardar kit</button></div>
+  const it = k.italic ? 'font-style:italic;' : '', up = k.upper ? 'text-transform:uppercase;' : '';
+  const lg = (key, dark) => k[key] ? `<img src="/media/${esc(k[key])}" alt="" style="max-width:70%;max-height:30px">` : `<span style="font-family:'${esc(k.label)}';letter-spacing:.3em;font-size:11px">${esc(c.name.split(' ')[0].toUpperCase())}</span>`;
+  return `<section class="card kit" id="kit"><div class="card-h"><span class="t"><span class="hbox">${ic('type')}</span>Kit de marca · lo usa el diseñador de slides</span><button class="btn sm pri" data-act="kit-save">Guardar kit</button></div>
     <div class="kitbody">
       <div class="kitf">
-        <span class="lbl">Colores</span><div class="row" style="gap:14px">${col('bg', 'Fondo')}${col('ink', 'Texto')}${col('accent', 'Acento')}</div>
-        <span class="lbl">Tipografías</span><div class="form" style="padding:0"><label>Títulos${fsel('title')}</label><label>Textos${fsel('body')}</label></div>
-        <label class="row mu" style="gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" data-kit="upper" ${k.upper ? 'checked' : ''} style="width:auto"> Títulos en mayúsculas</label>
-        <span class="lbl">Logos</span><div class="row" style="gap:12px">
-          <label class="klogo">${k.logo ? `<img src="/media/${esc(k.logo)}" alt="">` : '<span>Subir</span>'}<small>Logo oscuro</small><input type="file" accept="image/png,image/svg+xml,image/webp" class="sr" data-logo="logo"></label>
-          <label class="klogo dark">${k.logo_light ? `<img src="/media/${esc(k.logo_light)}" alt="">` : '<span>Subir</span>'}<small>Logo claro</small><input type="file" accept="image/png,image/svg+xml,image/webp" class="sr" data-logo="logo_light"></label></div>
-        <span class="dim" style="font-size:12px">Usa PNG con fondo transparente. El claro va sobre fotos y fondos oscuros.</span>
+        <span class="lbl">Colores</span><div class="row" style="gap:14px">${col('bg', 'Fondo')}${col('ink', 'Principal')}${col('accent', 'Acento')}</div>
+        <span class="lbl">Tipografías</span><div class="form" style="padding:0;grid-template-columns:1fr 1fr 1fr"><label>Títulos${fsel('title')}</label><label>Textos${fsel('body')}</label><label>Etiquetas${fsel('label')}</label></div>
+        <div class="row" style="gap:18px"><label class="row mu" style="gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" data-kit="italic" ${k.italic ? 'checked' : ''} style="width:auto"> Títulos en itálica</label><label class="row mu" style="gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" data-kit="upper" ${k.upper ? 'checked' : ''} style="width:auto"> Títulos en mayúsculas</label></div>
+        <div class="form" style="padding:0"><label>Texto del encabezado<input data-kit="tagline" value="${esc(k.tagline)}" placeholder="GASTROBAR · ROMA NORTE"></label><label>Dirección o pie<input data-kit="address" value="${esc(k.address)}" placeholder="MEDELLÍN 176 · ROMA NORTE"></label></div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:600;color:var(--mu)">Reglas de diseño y copy para la IA<textarea data-kit="guide" rows="4" placeholder="Ej. títulos muy cortos que terminan en punto, minimalista, poco texto…">${esc(k.guide)}</textarea></label>
+        <span class="lbl">Logos</span><div class="row" style="gap:10px">${LOGOS.map(([key, l]) => `<label class="klogo ${key.endsWith('light') ? 'dark' : ''}">${k[key] ? `<img src="/media/${esc(k[key])}" alt="">` : '<span>Subir</span>'}<small>${l}</small><input type="file" accept="image/png,image/svg+xml,image/webp" class="sr" data-logo="${key}"></label>`).join('')}</div>
+        <span class="dim" style="font-size:12px">PNG con fondo transparente. El claro va sobre fotos y fondos oscuros.</span>
       </div>
       <div class="kitprev" style="--kb:${esc(k.bg)};--ki:${esc(k.ink)};--ka:${esc(k.accent)}">
-        <div class="ks"><small style="font-family:'${esc(k.body)}'">DE LA CASA</small><b style="font-family:'${esc(k.title)}';${k.upper ? 'text-transform:uppercase' : ''}">Café para llevar</b><p style="font-family:'${esc(k.body)}'">Todos los días desde las 8:00, en barra.</p></div>
-        <div class="ks acc"><b style="font-family:'${esc(k.title)}';${k.upper ? 'text-transform:uppercase' : ''}">Te esperamos</b><p style="font-family:'${esc(k.body)}'">@${esc(c.handle || '')}</p></div>
+        <div class="ks">${lg('logo')}<i class="kr"></i><b style="font-family:'${esc(k.title)}';${it}${up}">La carta.</b><p style="font-family:'${esc(k.body)}'">Mañana, tarde y noche.</p><small style="font-family:'${esc(k.label)}'">${esc(k.address || 'DIRECCIÓN')}</small></div>
+        <div class="ks acc">${lg('logo_light')}<i class="kr"></i><b style="font-family:'${esc(k.title)}';${it}${up}">Dolce far niente.</b><small style="font-family:'${esc(k.label)}'">${esc(k.tagline || 'ENCABEZADO')}</small></div>
       </div></div></section>`;
 }
 function kitFromForm() {
@@ -845,50 +852,69 @@ function kitFromForm() {
 }
 document.addEventListener('change', async (e) => {
   const t = e.target;
-  if (t.dataset && t.dataset.kit) { app.client.brand_kit = kitFromForm(); const y = scrollY; renderClient(); scrollTo(0, y); }
+  if (t.dataset && t.dataset.kit && t.tagName !== 'TEXTAREA' && t.type !== 'text') { app.client.brand_kit = kitFromForm(); const y = scrollY; renderClient(); scrollTo(0, y); }
   if (t.dataset && t.dataset.logo && t.files[0]) {
     const fd = new FormData(); fd.append('file', t.files[0]); fd.append('slot', t.dataset.logo);
-    try { const kit = kitFromForm(); app.client = await api('/clients/' + app.client.id + '/logo', { method: 'POST', body: fd }); app.client.brand_kit = { ...kit, logo: app.client.brand_kit.logo, logo_light: app.client.brand_kit.logo_light }; const y = scrollY; renderClient(); scrollTo(0, y); toast('Logo subido'); } catch (err) { toast(err.message); }
+    try { const kit = kitFromForm(); const r = await api('/clients/' + app.client.id + '/logo', { method: 'POST', body: fd }); app.client.brand_kit = { ...kit, [t.dataset.logo]: r.brand_kit[t.dataset.logo] }; const y = scrollY; renderClient(); scrollTo(0, y); toast('Logo subido · recuerda guardar el kit'); } catch (err) { toast(err.message); }
   }
 });
 
 // ================= DISEÑADOR DE SLIDES =================
-const TPL = { portada: 'Portada', texto: 'Texto', foto: 'Foto + texto', cierre: 'Cierre', libre: 'Libre' };
+// Plantillas basadas en las piezas que ya hace el estudio: frase sobre crema o color, foto con título, momento (hora + frase), foto con texto y cierre.
+const TPL = { portada: 'Foto · título', frase: 'Frase · claro', frase_color: 'Frase · color', foto_texto: 'Foto + texto', momento: 'Momento', cierre: 'Cierre', libre: 'Libre' };
+const TPL_OLD = { texto: 'frase', foto: 'foto_texto' };
+const BGDEF = { portada: { color: 'ink', dim: 0.3, grad: true }, frase: { color: 'bg' }, frase_color: { color: 'ink' }, foto_texto: { color: 'bg', box: [0.5, 1] }, momento: { color: 'ink', dim: 0.42 }, cierre: { color: 'ink' }, libre: { color: 'ink', dim: 0.2, grad: true } };
+const PHOTO_TPL = ['portada', 'foto_texto', 'momento', 'libre'];
+const LOGO_DEF = { portada: true, frase: true, frase_color: true, foto_texto: true, momento: false, cierre: true, libre: false };
 const COLOR = (k, v) => ({ bg: k.bg, ink: k.ink, accent: k.accent, white: '#FFFFFF', black: '#111111' }[v] || v || k.ink);
-function tplLayers(sl, H, c) {
-  const k = sl.content || {}, L = [], M = 84, W = 1080 - M * 2;
+const showLogo = (sl) => (sl.logo == null ? LOGO_DEF[sl.tpl] : sl.logo);
+function tplLayers(sl, H, c, kit) {
+  const k = sl.content || {}, L = [], M = 100, W = 1080 - M * 2, lg = showLogo(sl);
   const T = (o) => L.push({ t: 'text', x: M, w: W, align: 'left', ...o });
-  if (sl.tpl === 'portada') {
-    if (sl.logo !== false) L.push({ t: 'logo', which: 'light', x: M, y: M, w: 170 });
-    T({ key: 'title', text: k.title, font: 'title', size: 104, color: 'white', y: H - 120, anchor: 'bottom', lh: 1.02 });
-    T({ key: 'kicker', text: k.kicker, font: 'body', size: 30, color: 'white', weight: 600, upper: true, ls: 4, above: 'title', gap: 26 });
-    if (k.body) { L.find((x) => x.key === 'title').y = H - 200; T({ key: 'body', text: k.body, font: 'body', size: 34, color: 'white', below: 'title', gap: 24, op: 0.9 }); }
-  } else if (sl.tpl === 'texto') {
-    T({ key: 'kicker', text: k.kicker, font: 'body', size: 30, color: 'accent', weight: 600, upper: true, ls: 4, y: 190 });
-    T({ key: 'title', text: k.title, font: 'title', size: 96, color: 'ink', below: 'kicker', gap: 34, lh: 1.04 });
-    T({ key: 'body', text: k.body, font: 'body', size: 42, color: 'ink', below: 'title', gap: 40, lh: 1.3, op: 0.85 });
-    if (sl.logo !== false) L.push({ t: 'logo', which: 'dark', x: M, y: H - M - 70, w: 150 });
-  } else if (sl.tpl === 'foto') {
-    const top = Math.round(H * 0.6);
-    T({ key: 'kicker', text: k.kicker, font: 'body', size: 26, color: 'accent', weight: 600, upper: true, ls: 4, y: top + 64 });
-    T({ key: 'title', text: k.title, font: 'title', size: 66, color: 'ink', below: 'kicker', gap: 18, lh: 1.05 });
-    T({ key: 'body', text: k.body, font: 'body', size: 34, color: 'ink', below: 'title', gap: 20, lh: 1.3, op: 0.85 });
+  const title = (o) => T({ key: 'title', text: k.title, font: 'title', italic: true, lh: 1.08, ...o });
+  if (sl.tpl === 'frase' || sl.tpl === 'frase_color') {
+    const fg = sl.tpl === 'frase' ? 'ink' : 'bg';
+    if (lg) L.push({ t: 'logo', which: sl.tpl === 'frase' ? 'dark' : 'light', x: M, y: 128, w: 300 });
+    L.push({ t: 'rule', key: 'rule', x: M, y: Math.round(H * 0.395), w: 108, h: 3, color: 'accent' });
+    title({ size: 118, color: fg, below: 'rule', gap: 56 });
+    T({ key: 'body', text: k.body, font: 'body', size: 38, color: fg, below: 'title', gap: 34, lh: 1.4, op: 0.85, w: 760 });
+    T({ key: 'kicker', text: k.kicker || kit.address, font: 'label', size: 32, color: fg, upper: true, ls: 10, y: H - 135, anchor: 'bottom', lh: 1.6, w: 720 });
+  } else if (sl.tpl === 'portada' || sl.tpl === 'libre') {
+    if (lg) L.push({ t: 'logo', which: 'light', x: M, y: 110, w: 260 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 26, color: 'white', upper: true, ls: 6, y: H - 120, anchor: 'bottom', op: 0.9 });
+    title({ size: sl.tpl === 'libre' ? 84 : 96, color: 'white', above: 'kicker', gap: 26 });
+    if (k.body) T({ key: 'body', text: k.body, font: 'body', size: 34, color: 'white', above: 'title', gap: 28, lh: 1.4, op: 0.9, w: 820 });
+  } else if (sl.tpl === 'foto_texto') {
+    if (lg) L.push({ t: 'logo', which: 'dark', x: M, y: 92, w: 220 });
+    if (kit.tagline) T({ key: 'tag', text: kit.tagline, font: 'label', size: 20, color: 'accent', upper: true, ls: 6, x: 540, w: 1080 - M - 540, y: 112, align: 'right' });
+    L.push({ t: 'rule', x: M, y: 172, w: W, h: 2, color: 'ink', op: 0.6 });
+    title({ size: 92, color: 'ink', y: 220, lh: 1.05 });
+    T({ key: 'body', text: k.body, font: 'body', size: 32, color: 'ink', below: 'title', gap: 26, lh: 1.45, op: 0.85 });
+    if (k.kicker) T({ key: 'kicker', text: k.kicker, font: 'label', size: 22, color: 'white', upper: true, ls: 6, y: H - 70, anchor: 'bottom' });
+  } else if (sl.tpl === 'momento') {
+    T({ key: 'title', text: k.title, font: 'label', size: 150, color: 'white', y: Math.round(H * 0.46), anchor: 'bottom', lh: 1 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 26, color: 'white', upper: true, ls: 8, below: 'title', gap: 26, op: 0.85 });
+    T({ key: 'body', text: k.body, font: 'title', italic: true, size: 58, color: 'white', below: 'kicker', gap: 30, lh: 1.25 });
+    if (showLogo(sl)) L.push({ t: 'logo', which: 'light', x: M, y: H - 170, w: 220 });
   } else if (sl.tpl === 'cierre') {
-    T({ key: 'title', text: k.title, font: 'title', size: 104, color: 'bg', y: Math.round(H * 0.36), align: 'center', lh: 1.02 });
-    T({ key: 'body', text: k.body, font: 'body', size: 38, color: 'bg', below: 'title', gap: 34, align: 'center', lh: 1.3 });
-    T({ key: 'kicker', text: k.kicker || (c.handle ? '@' + c.handle : ''), font: 'body', size: 30, color: 'bg', weight: 600, below: 'body', gap: 40, align: 'center', ls: 2 });
-    if (sl.logo !== false) L.push({ t: 'logo', which: 'light', x: 540 - 110, y: H - M - 110, w: 220 });
-  } else {
-    T({ key: 'title', text: k.title, font: 'title', size: 88, color: 'white', y: H - 140, anchor: 'bottom', lh: 1.04 });
+    title({ size: 104, color: 'bg', y: Math.round(H * 0.3), align: 'center', lh: 1.06 });
+    T({ key: 'body', text: k.body, font: 'body', size: 36, color: 'bg', below: 'title', gap: 34, align: 'center', lh: 1.45, op: 0.9 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 26, color: 'accent', upper: true, ls: 8, below: 'body', gap: 50, align: 'center' });
+    if (lg) L.push({ t: 'logo', which: 'light', lock: true, x: 540 - 210, y: H - 360, w: 420 });
   }
   return L;
 }
-const BGDEF = { portada: { color: 'ink', dim: 0.5, grad: true }, texto: { color: 'bg' }, foto: { color: 'bg', boxH: 0.6 }, cierre: { color: 'accent' }, libre: { color: 'ink', dim: 0.25, grad: true } };
-function newSlide(tpl, content = {}, photo = null) { return { tpl, content: { kicker: '', title: '', body: '', ...content }, bg: { ...BGDEF[tpl], photo: ['texto', 'cierre'].includes(tpl) ? null : photo, zoom: 1, fx: 0.5, fy: 0.5 }, layers: null }; }
-function wrapLines(ctx, text, w) {
+function newSlide(tpl, content = {}, photo = null) { tpl = TPL_OLD[tpl] || tpl; if (!TPL[tpl]) tpl = 'frase'; return { tpl, content: { kicker: '', title: '', body: '', ...content }, bg: { ...BGDEF[tpl], photo: PHOTO_TPL.includes(tpl) ? photo : null, zoom: 1, fx: 0.5, fy: 0.5 }, layers: null }; }
+const tw = (ctx, s, ls) => ctx.measureText(s).width + (ls ? ls * Math.max(0, [...s].length - 1) : 0);
+function wrapLines(ctx, text, w, ls) {
   const out = [];
-  String(text || '').split('\n').forEach((para) => { let line = ''; para.split(/\s+/).filter(Boolean).forEach((word) => { const t = line ? line + ' ' + word : word; if (ctx.measureText(t).width > w && line) { out.push(line); line = word; } else line = t; }); out.push(line); });
+  String(text || '').split('\n').forEach((para) => { let line = ''; para.split(/\s+/).filter(Boolean).forEach((word) => { const t = line ? line + ' ' + word : word; if (tw(ctx, t, ls) > w && line) { out.push(line); line = word; } else line = t; }); out.push(line); });
   return out;
+}
+function fillSpaced(ctx, s, x, y, ls, align) {
+  if (!ls) { ctx.textAlign = align; ctx.fillText(s, x, y); ctx.textAlign = 'left'; return; }
+  const w = tw(ctx, s, ls); let cx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  ctx.textAlign = 'left'; for (const ch of s) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + ls; }
 }
 const imgCache = new Map();
 const getImg = (url) => { if (!url) return null; if (imgCache.has(url)) return imgCache.get(url); const im = new Image(); im.crossOrigin = 'anonymous'; const p = new Promise((r) => { im.onload = () => r(im); im.onerror = () => r(null); }); im.src = url; imgCache.set(url, p); return p; };
@@ -898,38 +924,42 @@ async function drawSlide(ctx, sl, kit, H, c) {
   ctx.fillStyle = COLOR(kit, bg.color || 'bg'); ctx.fillRect(0, 0, 1080, H);
   const im = await getImg(bg.photo);
   if (im) {
-    const bx = 0, by = 0, bw = 1080, bh = bg.boxH ? Math.round(H * bg.boxH) : H;
+    const box = bg.box || (bg.boxH ? [0, bg.boxH] : [0, 1]);
+    const bx = 0, by = Math.round(H * box[0]), bw = 1080, bh = Math.round(H * box[1]) - by;
     const sc = Math.max(bw / im.width, bh / im.height) * (bg.zoom || 1), iw = im.width * sc, ih = im.height * sc;
     const ox = bx + (bw - iw) * (bg.fx ?? 0.5), oy = by + (bh - ih) * (bg.fy ?? 0.5);
     ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip(); ctx.drawImage(im, ox, oy, iw, ih);
-    if (bg.dim) { if (bg.grad) { const g = ctx.createLinearGradient(0, by + bh * 0.3, 0, by + bh); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${Math.min(0.92, bg.dim + 0.25)})`); ctx.fillStyle = g; ctx.fillRect(bx, by, bw, bh); ctx.fillStyle = `rgba(0,0,0,${bg.dim * 0.35})`; ctx.fillRect(bx, by, bw, bh); } else { ctx.fillStyle = `rgba(0,0,0,${bg.dim})`; ctx.fillRect(bx, by, bw, bh); } }
+    if (bg.dim) { if (bg.grad) { const g = ctx.createLinearGradient(0, by + bh * 0.35, 0, by + bh); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${Math.min(0.9, bg.dim + 0.35)})`); ctx.fillStyle = g; ctx.fillRect(bx, by, bw, bh); ctx.fillStyle = `rgba(0,0,0,${bg.dim * 0.3})`; ctx.fillRect(bx, by, bw, bh); } else { ctx.fillStyle = `rgba(0,0,0,${bg.dim})`; ctx.fillRect(bx, by, bw, bh); } }
     ctx.restore();
   }
-  const layers = sl.layers || tplLayers(sl, H, c), boxes = [], byKey = {};
+  const layers = sl.layers || tplLayers(sl, H, c, kit), boxes = [], byKey = {};
   const ref = (r) => (typeof r === 'string' ? byKey[r] : boxes[r]);
   for (let i = 0; i < layers.length; i++) {
     const L = layers[i];
+    if (L.t === 'rule') { ctx.globalAlpha = L.op ?? 1; ctx.fillStyle = COLOR(kit, L.color || 'accent'); ctx.fillRect(L.x, L.y, L.w, L.h || 2); ctx.globalAlpha = 1; boxes.push({ x: L.x, y: L.y, w: L.w, h: L.h || 2 }); if (L.key) byKey[L.key] = boxes[i]; continue; }
     if (L.t === 'logo') {
-      const key = L.which === 'light' ? (kit.logo_light || kit.logo) : (kit.logo || kit.logo_light);
+      const light = L.which === 'light';
+      const key = L.lock ? (light ? kit.lockup_light || kit.logo_light : kit.lockup || kit.logo) : (light ? kit.logo_light || kit.lockup_light : kit.logo || kit.lockup);
       const lim = key && await getImg('/media/' + key);
       if (lim) { const h = L.w * lim.height / lim.width; ctx.drawImage(lim, L.x, L.y, L.w, h); boxes.push({ x: L.x, y: L.y, w: L.w, h }); }
-      else if (L.x > 300) boxes.push({ x: L.x, y: L.y, w: L.w, h: 0 });
-      else { ctx.font = `600 30px "${kit.body}"`; ctx.fillStyle = L.which === 'light' ? '#fff' : COLOR(kit, 'ink'); ctx.textBaseline = 'top'; ctx.fillText(c.handle ? '@' + c.handle : c.name, L.x, L.y); boxes.push({ x: L.x, y: L.y, w: L.w, h: 36 }); }
+      else { const fs = Math.round(L.w / 7); ctx.font = `400 ${fs}px "${kit.label}"`; ctx.fillStyle = light ? '#fff' : COLOR(kit, 'ink'); ctx.textBaseline = 'top'; const nm = c.name.split(' ')[0].toUpperCase(); fillSpaced(ctx, nm, L.lock ? L.x + L.w / 2 : L.x, L.y, fs * 0.45, L.lock ? 'center' : 'left'); boxes.push({ x: L.x, y: L.y, w: L.w, h: fs }); }
       continue;
     }
     const raw = (L.upper || (L.font === 'title' && kit.upper)) ? String(L.text || '').toUpperCase() : String(L.text || '');
-    const fam = L.font === 'title' ? kit.title : kit.body, wt = L.weight || (L.font === 'title' ? (['Bebas Neue', 'Instrument Serif', 'DM Serif Display'].includes(fam) ? 400 : 600) : 400);
-    ctx.font = `${wt} ${L.size}px "${fam}"`; if ('letterSpacing' in ctx) ctx.letterSpacing = (L.ls || 0) + 'px';
-    const lines = raw.trim() ? wrapLines(ctx, raw, L.w) : [], lh = L.size * (L.lh || 1.15), h = lines.length * lh;
+    const fam = L.font === 'title' ? kit.title : L.font === 'label' ? kit.label : kit.body;
+    const ital = L.italic && (L.font !== 'title' || kit.italic) ? 'italic ' : '';
+    const wt = L.weight || 400;
+    ctx.font = `${ital}${wt} ${L.size}px "${fam}"`;
+    const ls = L.ls || 0, lines = raw.trim() ? wrapLines(ctx, raw, L.w, ls) : [], lh = L.size * (L.lh || 1.15), h = lines.length * lh;
     let y = L.y ?? 0;
     const rb = L.below != null && ref(L.below), ra = L.above != null && ref(L.above);
     if (rb) y = rb.h ? rb.y + rb.h + (L.gap || 0) : rb.y;
     if (ra) y = ra.y - (ra.h ? L.gap || 0 : 0) - h;
-    if (L.anchor === 'bottom') y -= h;
-    ctx.fillStyle = COLOR(kit, L.color); ctx.globalAlpha = L.op ?? 1; ctx.textBaseline = 'top'; ctx.textAlign = L.align || 'left';
-    const ax = L.align === 'center' ? L.x + L.w / 2 : L.align === 'right' ? L.x + L.w : L.x;
-    lines.forEach((ln, j) => ctx.fillText(ln, ax, y + j * lh + (lh - L.size) * 0.5));
-    ctx.globalAlpha = 1; ctx.textAlign = 'left'; if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    else if (L.anchor === 'bottom') y -= h;
+    ctx.fillStyle = COLOR(kit, L.color); ctx.globalAlpha = L.op ?? 1; ctx.textBaseline = 'top';
+    const al = L.align || 'left', ax = al === 'center' ? L.x + L.w / 2 : al === 'right' ? L.x + L.w : L.x;
+    lines.forEach((ln, j) => fillSpaced(ctx, ln, ax, y + j * lh + (lh - L.size) * 0.5, ls, al));
+    ctx.globalAlpha = 1;
     boxes.push({ x: L.x, y, w: L.w, h }); if (L.key) byKey[L.key] = boxes[i];
   }
   ctx.restore();
@@ -939,59 +969,82 @@ function openSlides() {
   const d = app.detail, c = app.client; if (!d) return;
   const kit = kitOf(c);
   const photos = d.media.filter((m) => !m.video);
-  const S = d.design && d.design.slides && d.design.slides.length ? JSON.parse(JSON.stringify(d.design)) : { ratio: '4:5', slides: [newSlide('portada', { title: d.title, kicker: '' }, photos[0] && photos[0].url)] };
-  let cur = 0, selL = -1, last = null, dirty = false;
+  const S = d.design && d.design.slides && d.design.slides.length ? JSON.parse(JSON.stringify(d.design)) : { ratio: '4:5', slides: [] };
+  S.slides.forEach((sl) => { if (TPL_OLD[sl.tpl]) { const n = newSlide(sl.tpl, sl.content, sl.bg && sl.bg.photo); Object.assign(sl, n); } });
+  let cur = 0, selL = -1, last = null, dirty = false, mode = S.slides.length ? 'simple' : 'ask';
+  const aiOn = agentOn('slides');
   const H = () => (S.ratio === '1:1' ? 1080 : 1350);
   const el = document.createElement('div'); el.className = 'slides-ed';
-  el.innerHTML = `<div class="sd-bar"><div><span class="eyebrow">P${d.number} · ${esc(d.title)}</span><b>Diseñar slides</b></div>
+  el.innerHTML = `<div class="sd-bar"><div><span class="eyebrow">${esc(c.name)} · P${d.number} · ${esc(d.title)}</span><b>Slides de diseño</b></div>
       <div class="row"><div class="seg" id="sd-ratio"><button data-r="4:5">4:5</button><button data-r="1:1">1:1</button></div>
-      ${agentOn('slides') ? `<button class="btn sm agentb" data-s="ai">${ic('spark')}Proponer con IA</button>` : ''}
-      <button class="btn sm" data-s="save">Guardar diseño</button><button class="btn sm pri" data-s="export">${ic('up')}Exportar a la publicación</button><button class="iconbtn" data-s="close" aria-label="Cerrar">${ic('x')}</button></div></div>
+      <button class="btn sm" data-s="mode" id="sd-mode"></button>
+      <button class="btn sm" data-s="save">Guardar</button><button class="btn sm pri" data-s="export">${ic('up')}Exportar a la publicación</button><button class="iconbtn" data-s="close" aria-label="Cerrar">${ic('x')}</button></div></div>
+    <div class="sd-ask" id="sd-ask"></div>
+    <div class="sd-simple" id="sd-simple"><div class="sd-row" id="sd-row"></div>
+      <form class="sd-prompt" id="sd-chat"><span class="ci" style="background:var(--tint);color:var(--accent)">${ic('spark')}</span><input name="q" autocomplete="off" placeholder="${aiOn ? 'Pide un cambio: «el 2 en vino», «título más corto», «agrega uno con el horario»…' : 'Prende el agente «Diseñador de carruseles» para pedir cambios'}" ${aiOn ? '' : 'disabled'}><button class="btn sm pri" ${aiOn ? '' : 'disabled'}>Aplicar</button></form>
+      <div class="sd-msg" id="sd-msg"></div></div>
     <div class="sd-body"><aside class="sd-list" id="sd-list"></aside><div class="sd-stage" id="sd-stage"><canvas id="sd-cv"></canvas></div><aside class="sd-panel" id="sd-panel"></aside></div>`;
   document.body.appendChild(el);
   const cv = el.querySelector('#sd-cv'), ctx = cv.getContext('2d'), stage = el.querySelector('#sd-stage');
-  const fit = () => { const hh = H(), sw = stage.clientWidth - 32, sh = stage.clientHeight - 32, k = Math.min(sw / 1080, sh / hh); cv.style.width = Math.floor(1080 * k) + 'px'; cv.style.height = Math.floor(hh * k) + 'px'; };
-  const render = async () => { cv.width = 1080; cv.height = H(); fit(); last = await drawSlide(ctx, S.slides[cur], kit, H(), c);
+  const setMode = (m) => { mode = m; el.dataset.mode = m; const b = el.querySelector('#sd-mode'); b.style.display = m === 'ask' ? 'none' : ''; b.innerHTML = m === 'detail' ? `${ic('grid')}Ver todos` : `${ic('pen')}Editar a detalle`; el.querySelector('.sd-bar [data-s="export"]').disabled = !S.slides.length; if (m === 'ask') ask(); if (m === 'simple') row(); if (m === 'detail') { panel(); render(); thumbs(); } };
+  const ask = () => {
+    const ex = [`Carrusel de 4 para el café para llevar: portada con foto, una frase en ${'vino'}, el horario y cierre`, 'Tres slides de la terraza, muy minimalistas, con frase en italiano', 'Momentos del día: mañana, tarde y noche con la hora grande'];
+    el.querySelector('#sd-ask').innerHTML = `<form class="sd-askc" id="sd-askf"><span class="eyebrow">Con el diseño de ${esc(c.name)}</span><h2>¿Qué carrusel necesitas?</h2>
+      <textarea name="q" rows="3" placeholder="Descríbelo como se lo dirías al equipo…" ${aiOn ? '' : 'disabled'}>${esc(S.lastAsk || '')}</textarea>
+      <div class="sd-ex">${ex.map((x) => `<button type="button" data-s="ex">${esc(x)}</button>`).join('')}</div>
+      <div class="between"><label class="row mu" style="gap:8px;font-size:13px">Slides <select name="n" style="width:auto"><option value="">Que lo decida la IA</option>${[2, 3, 4, 5, 6, 8].map((n) => `<option>${n}</option>`).join('')}</select></label>
+      <div class="row"><button type="button" class="btn ghost" data-s="blank">Empezar en blanco</button><button class="btn pri" ${aiOn ? '' : 'disabled'}>${ic('spark')}Generar</button></div></div>
+      ${aiOn ? `<span class="dim" style="font-size:12px">Usa el kit de marca, el copy y las fotos de P${d.number}. Luego lo ajustas pidiéndolo o a detalle.</span>` : '<span class="dim" style="font-size:12px">Para generarlo con IA prende el agente «Diseñador de carruseles» en Agentes.</span>'}</form>`;
+  };
+  const row = async () => {
+    const r = el.querySelector('#sd-row');
+    r.innerHTML = S.slides.map((_, i) => `<button class="sd-card" data-s="open" data-i="${i}" aria-label="Editar slide ${i + 1}"><canvas width="540" height="${H() / 2}"></canvas><span>${i + 1} · ${esc(TPL[S.slides[i].tpl] || '')}</span></button>`).join('') + `<button class="sd-card add" data-s="addsimple">${ic('plus')}<span>Agregar slide</span></button>`;
+    const cvs = r.querySelectorAll('canvas');
+    for (let i = 0; i < S.slides.length; i++) { const x = cvs[i].getContext('2d'); x.setTransform(0.5, 0, 0, 0.5, 0, 0); await drawSlide(x, S.slides[i], kit, H(), c); }
+  };
+  const fit = () => { if (mode !== 'detail') return; const hh = H(), sw = stage.clientWidth - 32, sh = stage.clientHeight - 32, k = Math.min(sw / 1080, sh / hh); cv.style.width = Math.floor(1080 * k) + 'px'; cv.style.height = Math.floor(hh * k) + 'px'; };
+  const render = async () => { if (!S.slides[cur]) return; cv.width = 1080; cv.height = H(); fit(); last = await drawSlide(ctx, S.slides[cur], kit, H(), c);
     if (selL >= 0 && last.boxes[selL]) { const b = last.boxes[selL]; ctx.save(); ctx.strokeStyle = '#3B82F6'; ctx.lineWidth = 4; ctx.setLineDash([14, 10]); ctx.strokeRect(b.x - 12, b.y - 12, b.w + 24, Math.max(b.h, 20) + 24); ctx.restore(); } };
   const thumbs = async () => {
     const list = el.querySelector('#sd-list');
-    list.innerHTML = S.slides.map((_, i) => `<div class="sd-th ${i === cur ? 'on' : ''}"><button data-s="go" data-i="${i}" aria-label="Slide ${i + 1}"><canvas width="216" height="${H() / 5}"></canvas></button><span>${i + 1}</span>${S.slides.length > 1 ? `<span class="sd-thx"><button data-s="up" data-i="${i}" aria-label="Subir">${ic('left')}</button><button data-s="dup" data-i="${i}" aria-label="Duplicar">${ic('copyi')}</button><button data-s="del" data-i="${i}" aria-label="Borrar">${ic('trash')}</button></span>` : `<span class="sd-thx"><button data-s="dup" data-i="${i}" aria-label="Duplicar">${ic('copyi')}</button></span>`}</div>`).join('')
+    list.innerHTML = S.slides.map((_, i) => `<div class="sd-th ${i === cur ? 'on' : ''}"><button data-s="go" data-i="${i}" aria-label="Slide ${i + 1}"><canvas width="216" height="${H() / 5}"></canvas></button><span>${i + 1}</span><span class="sd-thx">${i ? `<button data-s="up" data-i="${i}" aria-label="Subir">${ic('left')}</button>` : ''}<button data-s="dup" data-i="${i}" aria-label="Duplicar">${ic('copyi')}</button>${S.slides.length > 1 ? `<button data-s="del" data-i="${i}" aria-label="Borrar">${ic('trash')}</button>` : ''}</span></div>`).join('')
       + `<div class="sd-add"><span class="lbl">Agregar</span>${Object.entries(TPL).map(([k, v]) => `<button class="btn sm" data-s="add" data-t="${k}">${ic('plus')}${v}</button>`).join('')}</div>`;
     const cvs = list.querySelectorAll('canvas');
     for (let i = 0; i < S.slides.length; i++) { const x = cvs[i].getContext('2d'); x.setTransform(0.2, 0, 0, 0.2, 0, 0); await drawSlide(x, S.slides[i], kit, H(), c); }
   };
   const panel = () => {
-    const sl = S.slides[cur], bg = sl.bg, L = sl.layers && selL >= 0 ? sl.layers[selL] : null;
-    const field = (k, lab, rows) => `<label>${lab}<textarea data-c="${k}" rows="${rows}">${esc(sl.content[k] || '')}</textarea></label>`;
+    const sl = S.slides[cur]; if (!sl) return; const bg = sl.bg, L = sl.layers && selL >= 0 ? sl.layers[selL] : null;
+    const LBL = { kicker: sl.tpl === 'momento' ? 'Etiqueta (ej. MAÑANA)' : 'Etiqueta', title: sl.tpl === 'momento' ? 'Hora o dato grande' : 'Título', body: sl.tpl === 'momento' ? 'Frase' : 'Texto' };
+    const field = (k, rows) => `<label>${LBL[k]}<textarea data-c="${k}" rows="${rows}">${esc(sl.content[k] || '')}</textarea></label>`;
     const colorBtns = (cur0, attr) => `<div class="sd-colors">${['bg', 'ink', 'accent', 'white', 'black'].map((v) => `<button data-${attr}="${v}" class="${cur0 === v ? 'on' : ''}" style="background:${COLOR(kit, v)}" aria-label="${v}"></button>`).join('')}</div>`;
     el.querySelector('#sd-panel').innerHTML = `
       <div class="sd-sec"><span class="lbl">Plantilla</span><div class="sd-tpls">${Object.entries(TPL).map(([k, v]) => `<button data-s="tpl" data-t="${k}" class="${sl.tpl === k ? 'on' : ''}">${v}</button>`).join('')}</div></div>
       ${sl.layers ? `<div class="sd-sec"><div class="between"><span class="lbl">Textos y capas</span><button class="btn sm ghost" data-s="reset">Volver a la plantilla</button></div>
-        <div class="sd-layers">${sl.layers.map((x, i) => `<button data-s="sel" data-i="${i}" class="${i === selL ? 'on' : ''}">${x.t === 'logo' ? 'Logo' : esc((x.text || 'Texto vacío').slice(0, 34))}</button>`).join('')}</div>
+        <div class="sd-layers">${sl.layers.map((x, i) => x.t === 'rule' ? '' : `<button data-s="sel" data-i="${i}" class="${i === selL ? 'on' : ''}">${x.t === 'logo' ? 'Logo' : esc((x.text || 'Texto vacío').slice(0, 34))}</button>`).join('')}</div>
         <button class="btn sm" data-s="addtext">${ic('plus')}Agregar texto</button></div>
         ${L ? `<div class="sd-sec">${L.t === 'text' ? `<label>Texto<textarea data-l="text" rows="3">${esc(L.text || '')}</textarea></label>
-          <div class="sd-two"><label>Tipografía<select data-l="font"><option value="title" ${L.font === 'title' ? 'selected' : ''}>Títulos · ${esc(kit.title)}</option><option value="body" ${L.font === 'body' ? 'selected' : ''}>Textos · ${esc(kit.body)}</option></select></label>
+          <div class="sd-two"><label>Tipografía<select data-l="font"><option value="title" ${L.font === 'title' ? 'selected' : ''}>Títulos · ${esc(kit.title)}</option><option value="body" ${L.font === 'body' ? 'selected' : ''}>Textos · ${esc(kit.body)}</option><option value="label" ${L.font === 'label' ? 'selected' : ''}>Etiquetas · ${esc(kit.label)}</option></select></label>
           <label>Alineación<select data-l="align">${['left', 'center', 'right'].map((v, j) => `<option value="${v}" ${(L.align || 'left') === v ? 'selected' : ''}>${['Izquierda', 'Centro', 'Derecha'][j]}</option>`).join('')}</select></label></div>
-          <label>Tamaño <input type="range" data-l="size" min="18" max="200" value="${L.size}"></label>
+          <label>Tamaño <input type="range" data-l="size" min="16" max="220" value="${L.size}"></label>
           <label>Ancho <input type="range" data-l="w" min="160" max="1080" value="${L.w}"></label>
+          <label>Espaciado de letras <input type="range" data-l="ls" min="0" max="24" value="${L.ls || 0}"></label>
           <span class="lbl">Color</span>${colorBtns(L.color, 'lc')}
-          <label class="row mu" style="gap:8px;font-size:13px"><input type="checkbox" data-l="upper" ${L.upper ? 'checked' : ''} style="width:auto"> Mayúsculas</label>`
-          : `<label>Tamaño del logo <input type="range" data-l="w" min="60" max="600" value="${L.w}"></label><label>Versión<select data-l="which"><option value="light" ${L.which === 'light' ? 'selected' : ''}>Claro</option><option value="dark" ${L.which !== 'light' ? 'selected' : ''}>Oscuro</option></select></label>`}
+          <div class="row" style="gap:14px"><label class="row mu" style="gap:8px;font-size:13px;flex-direction:row"><input type="checkbox" data-l="upper" ${L.upper ? 'checked' : ''} style="width:auto"> Mayúsculas</label><label class="row mu" style="gap:8px;font-size:13px;flex-direction:row"><input type="checkbox" data-l="italic" ${L.italic ? 'checked' : ''} style="width:auto"> Itálica</label></div>`
+          : `<label>Tamaño del logo <input type="range" data-l="w" min="60" max="700" value="${L.w}"></label><label>Versión<select data-l="which"><option value="light" ${L.which === 'light' ? 'selected' : ''}>Claro</option><option value="dark" ${L.which !== 'light' ? 'selected' : ''}>Oscuro</option></select></label>`}
           <button class="btn sm ghost danger" data-s="dell">${ic('trash')}Quitar</button></div>` : ''}`
-      : `<div class="sd-sec">${sl.tpl !== 'libre' ? field('kicker', 'Etiqueta', 1) : ''}${field('title', 'Título', 2)}${sl.tpl !== 'libre' ? field('body', 'Texto', 3) : ''}
+      : `<div class="sd-sec">${sl.tpl === 'momento' ? field('title', 1) + field('kicker', 1) + field('body', 2) : field('kicker', 1) + field('title', 2) + field('body', 3)}
         <span class="dim" style="font-size:12px">Toca un texto en el slide para moverlo libremente.</span></div>`}
       <div class="sd-sec"><span class="lbl">Fondo</span>${colorBtns(bg.color, 'bc')}
-        ${sl.tpl !== 'texto' && sl.tpl !== 'cierre' || bg.photo ? `<div class="sd-photos"><button data-s="nophoto" class="${bg.photo ? '' : 'on'}">Sin foto</button>${photos.map((m) => `<button data-s="photo" data-id="${m.id}" class="${bg.photo === m.url || bg.src === m.id ? 'on' : ''}"><img src="${esc(m.url)}" alt=""></button>`).join('')}<label class="sd-upl">${ic('up')}<input type="file" accept="image/*" class="sr" id="sd-file"></label></div>
-        ${bg.photo ? `<label>Zoom <input type="range" data-b="zoom" min="1" max="3" step="0.01" value="${bg.zoom || 1}"></label><label>Oscurecer <input type="range" data-b="dim" min="0" max="0.8" step="0.02" value="${bg.dim || 0}"></label><span class="dim" style="font-size:12px">Arrastra la foto en el slide para acomodarla.</span>` : ''}` : `<button class="btn sm" data-s="addphoto">${ic('plus')}Usar foto de fondo</button>`}</div>
-      <label class="row mu sd-sec" style="gap:8px;font-size:13px;flex-direction:row"><input type="checkbox" data-s="logo" ${sl.logo !== false ? 'checked' : ''} style="width:auto"> Mostrar logo</label>`;
+        <div class="sd-photos"><button data-s="nophoto" class="${bg.photo ? '' : 'on'}">Sin foto</button>${photos.map((m) => `<button data-s="photo" data-id="${m.id}" class="${bg.src === m.id || bg.photo === m.url ? 'on' : ''}"><img src="${esc(m.url)}" alt=""></button>`).join('')}<label class="sd-upl">${ic('up')}<input type="file" accept="image/*" class="sr" id="sd-file"></label></div>
+        ${bg.photo ? `<label>Zoom <input type="range" data-b="zoom" min="1" max="3" step="0.01" value="${bg.zoom || 1}"></label><label>Oscurecer <input type="range" data-b="dim" min="0" max="0.8" step="0.02" value="${bg.dim || 0}"></label><span class="dim" style="font-size:12px">Arrastra la foto en el slide para acomodarla.</span>` : ''}</div>
+      <label class="row mu sd-sec" style="gap:8px;font-size:13px;flex-direction:row"><input type="checkbox" data-s="logo" ${showLogo(sl) ? 'checked' : ''} style="width:auto"> Mostrar logo</label>`;
   };
-  const refresh = async (all = true) => { dirty = true; panel(); await render(); if (all) thumbs(); };
+  const refresh = async () => { dirty = true; if (mode === 'detail') { panel(); await render(); thumbs(); } else if (mode === 'simple') row(); };
   const materialize = () => { const sl = S.slides[cur]; if (sl.layers) return; sl.layers = last.layers.map((L, i) => { const b = last.boxes[i] || {}; const o = { ...L }; delete o.below; delete o.above; delete o.gap; if (o.t === 'text') { o.y = b.y; o.anchor = null; } return o; }); };
-  // arrastre en el lienzo
   let drag = null;
   const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * 1080 / r.width, y: (e.clientY - r.top) * H() / r.height }; };
   cv.onpointerdown = (e) => { if (!last) return; const p = pt(e); cv.setPointerCapture(e.pointerId);
-    const hit = last.boxes.map((b, i) => [b, i]).reverse().find(([b]) => b.h > 0 && p.x >= b.x - 16 && p.x <= b.x + b.w + 16 && p.y >= b.y - 16 && p.y <= b.y + Math.max(b.h, 24) + 16);
+    const hit = last.boxes.map((b, i) => [b, i]).reverse().find(([b, i]) => last.layers[i].t !== 'rule' && b.h > 0 && p.x >= b.x - 16 && p.x <= b.x + b.w + 16 && p.y >= b.y - 16 && p.y <= b.y + Math.max(b.h, 24) + 16);
     const sl = S.slides[cur];
     if (hit) { materialize(); selL = hit[1]; const L = sl.layers[selL]; drag = { k: 'l', p, x: L.x, y: L.y }; panel(); render(); }
     else if (sl.bg.photo) { selL = -1; drag = { k: 'b', p, fx: sl.bg.fx ?? 0.5, fy: sl.bg.fy ?? 0.5 }; }
@@ -1002,54 +1055,76 @@ function openSlides() {
     dirty = true; render(); };
   cv.onpointerup = () => { if (drag) { drag = null; thumbs(); } };
   const useMedia = async (m) => { const r = await api('/posts/' + d.id + '/asset', { method: 'POST', body: { media_id: m.id } }); return r.url; };
-  const close = async () => { if (dirty && !(await askConfirm({ title: '¿Salir sin guardar?', text: 'Hay cambios en el diseño que no se han guardado.', ok: 'Salir sin guardar' }))) return; el.remove(); window.removeEventListener('resize', fit); document.removeEventListener('keydown', key, true); };
+  const done = () => { el.remove(); window.removeEventListener('resize', fit); document.removeEventListener('keydown', key, true); };
+  const close = async () => { if (dirty && !(await askConfirm({ title: '¿Salir sin guardar?', text: 'Hay cambios en los slides que no se han guardado.', ok: 'Salir sin guardar' }))) return; done(); };
   const key = (e) => { if (e.key === 'Escape' && !document.querySelector('.cscrim')) { e.stopPropagation(); close(); } };
   document.addEventListener('keydown', key, true);
   window.addEventListener('resize', fit);
   const save = async () => {
-    for (const sl of S.slides) { const m = sl.bg.photo && photos.find((x) => x.url === sl.bg.photo); if (m) sl.bg.photo = await useMedia(m); }
-    app.detail = await api('/posts/' + d.id, { method: 'PATCH', body: { design: S } }); dirty = false; };
-  el.addEventListener('input', (e) => { const t = e.target, sl = S.slides[cur];
+    for (const sl of S.slides) { const m = sl.bg.photo && photos.find((x) => x.url === sl.bg.photo); if (m) { sl.bg.photo = await useMedia(m); sl.bg.src = m.id; } }
+    app.detail = await api('/posts/' + d.id, { method: 'PATCH', body: { design: S } }); dirty = false;
+  };
+  // Pedirle a la IA: crear desde una descripción o ajustar lo que ya hay.
+  const runAI = async (q, n, revise) => {
+    const body = { post_id: d.id, instruction: q, photos: photos.length };
+    if (n) body.n = +n;
+    if (revise) body.current = S.slides.map((x) => ({ tpl: x.tpl, kicker: x.content.kicker, title: x.content.title, body: x.content.body, photo: !!x.bg.photo, color: x.bg.color }));
+    const r = await api('/agents/slides/run', { method: 'POST', body });
+    if (!r.slides || !r.slides.length) throw new Error('El agente no regresó slides. Intenta de nuevo.');
+    let k = 0; const pick = () => (photos.length ? photos[k++ % photos.length].url : null);
+    S.slides = r.slides.map((x, i) => {
+      const old = revise && S.slides[i];
+      const ns = newSlide(x.tpl, { kicker: x.kicker || '', title: x.title || '', body: x.body || '' }, null);
+      if (PHOTO_TPL.includes(ns.tpl)) { const pi = Number(x.photo); ns.bg.photo = pi >= 1 && photos[pi - 1] ? photos[pi - 1].url : (old && old.bg.photo) || pick(); }
+      if (old && old.tpl === ns.tpl) { ns.bg = { ...old.bg, photo: ns.bg.photo }; if (old.logo != null) ns.logo = old.logo; }
+      if (x.bg && ['bg', 'ink', 'accent', 'white', 'black'].includes(x.bg)) ns.bg.color = x.bg;
+      return ns;
+    });
+    dirty = true; cur = 0; selL = -1;
+    el.querySelector('#sd-msg').textContent = r.message || '';
+  };
+  el.addEventListener('submit', async (e) => {
+    e.preventDefault(); const f = e.target, q = f.q.value.trim(), b = f.querySelector('.btn.pri');
+    if (!q) { f.q.focus(); return; }
+    b.disabled = true; const old = b.innerHTML; b.innerHTML = 'Diseñando…'; el.classList.add('busy');
+    try { if (f.id === 'sd-askf') { S.lastAsk = q; await runAI(q, f.n.value, false); setMode('simple'); } else { await runAI(q, null, true); f.q.value = ''; row(); } }
+    catch (err) { toast(err.message); }
+    el.classList.remove('busy'); b.disabled = false; b.innerHTML = old;
+  });
+  el.addEventListener('input', (e) => { const t = e.target, sl = S.slides[cur]; if (mode !== 'detail') return;
     if (t.dataset.c) { sl.content[t.dataset.c] = t.value; dirty = true; render(); clearTimeout(S._t); S._t = setTimeout(thumbs, 400); }
-    else if (t.dataset.l && t.type !== 'checkbox' && t.tagName !== 'SELECT') { const L = sl.layers[selL]; L[t.dataset.l] = t.type === 'range' ? +t.value : t.value; if (t.dataset.l === 'text') el.querySelector(`.sd-layers [data-i="${selL}"]`).textContent = t.value.slice(0, 34) || 'Texto vacío'; dirty = true; render(); clearTimeout(S._t); S._t = setTimeout(thumbs, 400); }
+    else if (t.dataset.l && t.type !== 'checkbox' && t.tagName !== 'SELECT') { const L = sl.layers[selL]; L[t.dataset.l] = t.type === 'range' ? +t.value : t.value; if (t.dataset.l === 'text') { const lb = el.querySelector(`.sd-layers [data-i="${selL}"]`); if (lb) lb.textContent = t.value.slice(0, 34) || 'Texto vacío'; } dirty = true; render(); clearTimeout(S._t); S._t = setTimeout(thumbs, 400); }
     else if (t.dataset.b) { sl.bg[t.dataset.b] = +t.value; dirty = true; render(); clearTimeout(S._t); S._t = setTimeout(thumbs, 400); } });
-  el.addEventListener('change', async (e) => { const t = e.target, sl = S.slides[cur];
+  el.addEventListener('change', async (e) => { const t = e.target, sl = S.slides[cur]; if (mode !== 'detail') return;
     if (t.dataset.l && (t.tagName === 'SELECT' || t.type === 'checkbox')) { sl.layers[selL][t.dataset.l] = t.type === 'checkbox' ? t.checked : t.value; refresh(); }
-    else if (t.dataset.s === 'logo') { sl.logo = t.checked; if (sl.layers) { if (!t.checked) sl.layers = sl.layers.filter((x) => x.t !== 'logo'); selL = -1; } refresh(); }
-    else if (t.id === 'sd-file' && t.files[0]) { const fd = new FormData(); fd.append('file', t.files[0]); toast('Subiendo foto…'); try { const r = await api('/posts/' + d.id + '/asset', { method: 'POST', body: fd }); sl.bg.photo = r.url; sl.bg.src = null; if (!sl.bg.boxH && ['texto', 'cierre'].includes(sl.tpl)) sl.bg.dim = 0.4; refresh(); } catch (err) { toast(err.message); } } });
+    else if (t.dataset.s === 'logo') { sl.logo = t.checked; if (sl.layers && !t.checked) sl.layers = sl.layers.filter((x) => x.t !== 'logo'); else if (sl.layers) sl.layers = null; selL = -1; refresh(); }
+    else if (t.id === 'sd-file' && t.files[0]) { const fd = new FormData(); fd.append('file', t.files[0]); toast('Subiendo foto…'); try { const r = await api('/posts/' + d.id + '/asset', { method: 'POST', body: fd }); sl.bg.photo = r.url; sl.bg.src = null; if (!PHOTO_TPL.includes(sl.tpl)) { sl.bg.dim = 0.45; } refresh(); } catch (err) { toast(err.message); } } });
   el.addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-s],[data-r],[data-lc],[data-bc]'); if (!b) return;
-    const sl = S.slides[cur];
+    const b = e.target.closest('[data-s],[data-r],[data-lc],[data-bc]'); if (!b || b.closest('form') && b.tagName === 'BUTTON' && !b.dataset.s) return;
+    const sl = S.slides[cur], s = b.dataset.s, i = +b.dataset.i;
     try {
       if (b.dataset.r) { S.ratio = b.dataset.r; el.querySelectorAll('#sd-ratio button').forEach((x) => x.classList.toggle('on', x === b)); return refresh(); }
       if (b.dataset.lc) { sl.layers[selL].color = b.dataset.lc; return refresh(); }
       if (b.dataset.bc) { sl.bg.color = b.dataset.bc; return refresh(); }
-      const s = b.dataset.s, i = +b.dataset.i;
       if (s === 'close') close();
+      else if (s === 'mode') setMode(mode === 'detail' ? 'simple' : 'detail');
+      else if (s === 'ex') { const ta = el.querySelector('#sd-askf textarea'); ta.value = b.textContent; ta.focus(); }
+      else if (s === 'blank') { S.slides = [newSlide('portada', { title: d.title }, photos[0] && photos[0].url), newSlide('frase', { title: 'Título.' }), newSlide('cierre', { title: 'Te esperamos.', kicker: kit.address })]; cur = 0; dirty = true; setMode('detail'); }
+      else if (s === 'open') { cur = i; selL = -1; setMode('detail'); }
+      else if (s === 'addsimple') { S.slides.push(newSlide('frase', { title: 'Título.' })); cur = S.slides.length - 1; dirty = true; setMode('detail'); }
       else if (s === 'go') { cur = i; selL = -1; panel(); render(); thumbs(); }
-      else if (s === 'add') { const ph = photos[S.slides.length % Math.max(1, photos.length)]; S.slides.splice(cur + 1, 0, newSlide(b.dataset.t, {}, ph && ph.url)); cur++; selL = -1; refresh(); }
+      else if (s === 'add') { const ph = photos[S.slides.length % Math.max(1, photos.length)]; S.slides.splice(cur + 1, 0, newSlide(b.dataset.t, { title: 'Título.' }, ph && ph.url)); cur++; selL = -1; refresh(); }
       else if (s === 'dup') { S.slides.splice(i + 1, 0, JSON.parse(JSON.stringify(S.slides[i]))); cur = i + 1; refresh(); }
       else if (s === 'up' && i > 0) { [S.slides[i - 1], S.slides[i]] = [S.slides[i], S.slides[i - 1]]; cur = i - 1; refresh(); }
-      else if (s === 'del') { if (await askConfirm({ title: `¿Borrar el slide ${i + 1}?`, text: 'Se quita del diseño.', ok: 'Sí, borrar' })) { S.slides.splice(i, 1); cur = Math.min(cur, S.slides.length - 1); selL = -1; refresh(); } }
-      else if (s === 'tpl') { const keep = sl.content, ph = sl.bg.photo; S.slides[cur] = newSlide(b.dataset.t, keep, ph); selL = -1; refresh(); }
+      else if (s === 'del') { if (await askConfirm({ title: `¿Borrar el slide ${i + 1}?`, text: 'Se quita del diseño.', ok: 'Sí, borrar' })) { S.slides.splice(i, 1); cur = Math.min(cur, S.slides.length - 1); selL = -1; if (!S.slides.length) setMode('ask'); else refresh(); } }
+      else if (s === 'tpl') { const ns = newSlide(b.dataset.t, sl.content, sl.bg.photo || (photos[0] && photos[0].url)); S.slides[cur] = ns; selL = -1; refresh(); }
       else if (s === 'reset') { sl.layers = null; selL = -1; refresh(); }
       else if (s === 'sel') { selL = i; panel(); render(); }
       else if (s === 'dell') { sl.layers.splice(selL, 1); selL = -1; refresh(); }
-      else if (s === 'addtext') { sl.layers.push({ t: 'text', text: 'Texto nuevo', font: 'body', size: 48, color: sl.bg.photo ? 'white' : 'ink', x: 84, y: Math.round(H() / 2), w: 912, align: 'left' }); selL = sl.layers.length - 1; refresh(); }
+      else if (s === 'addtext') { sl.layers.push({ t: 'text', text: 'Texto nuevo', font: 'body', size: 48, color: sl.bg.photo ? 'white' : 'ink', x: 100, y: Math.round(H() / 2), w: 880, align: 'left' }); selL = sl.layers.length - 1; refresh(); }
       else if (s === 'nophoto') { sl.bg.photo = null; sl.bg.src = null; refresh(); }
-      else if (s === 'addphoto') { sl.bg.photo = photos[0] ? await useMedia(photos[0]) : null; if (!sl.bg.photo) { toast('Sube una foto con el botón de flecha'); sl.bg.photo = null; } sl.bg.dim = 0.35; sl.bg.grad = true; refresh(); }
-      else if (s === 'photo') { b.disabled = true; const m = photos.find((x) => x.id === b.dataset.id); sl.bg.photo = await useMedia(m); sl.bg.src = m.id; refresh(); }
-      else if (s === 'ai') {
-        const n = Math.max(3, Math.min(8, S.slides.length > 1 ? S.slides.length : 5));
-        b.disabled = true; b.innerHTML = 'Pensando…';
-        const r = await api('/agents/slides/run', { method: 'POST', body: { post_id: d.id, n } });
-        if (!r.slides || !r.slides.length) throw new Error('El agente no regresó slides.');
-        if (S.slides.some((x) => x.content.title || x.layers) && !(await askConfirm({ title: 'Reemplazar los slides', text: `El agente propuso ${r.slides.length} slides. ¿Reemplazamos los actuales? Las fotos se acomodan solas y luego las puedes cambiar.`, ok: 'Sí, reemplazar' }))) { b.disabled = false; b.innerHTML = `${ic('spark')}Proponer con IA`; return; }
-        const urls = []; for (const m of photos.slice(0, 6)) urls.push(await useMedia(m));
-        let k = 0; S.slides = r.slides.map((x) => { const tpl = TPL[x.tpl] ? x.tpl : 'texto'; const ph = ['portada', 'foto', 'libre'].includes(tpl) && urls.length ? urls[k++ % urls.length] : null; return newSlide(tpl, { kicker: x.kicker || '', title: x.title || '', body: x.body || '' }, ph); });
-        cur = 0; selL = -1; b.disabled = false; b.innerHTML = `${ic('spark')}Proponer con IA`; refresh();
-      }
-      else if (s === 'save') { b.disabled = true; await save(); b.disabled = false; toast('Diseño guardado'); }
+      else if (s === 'photo') { const m = photos.find((x) => x.id === b.dataset.id); sl.bg.photo = m.url; sl.bg.src = m.id; if (!sl.bg.dim && !PHOTO_TPL.includes(sl.tpl)) sl.bg.dim = 0.45; refresh(); }
+      else if (s === 'save') { b.disabled = true; await save(); b.disabled = false; toast('Slides guardados'); }
       else if (s === 'export') {
         const ok = await askChoice(d.media.length);
         if (!ok) return;
@@ -1061,19 +1136,19 @@ function openSlides() {
         const fd = new FormData(); files.forEach((x) => fd.append('file', x));
         app.detail = await api('/posts/' + d.id + '/media', { method: 'POST', body: fd });
         if (S.slides.length > 1 && app.detail.kind === 'foto') app.detail = await api('/posts/' + d.id, { method: 'PATCH', body: { kind: 'carr' } });
-        app.posts = await api('/clients/' + c.id + '/posts'); dirty = false; el.remove(); window.removeEventListener('resize', fit); document.removeEventListener('keydown', key, true); renderClient(); toast(`${files.length} slides agregados a P${d.number}`);
+        app.posts = await api('/clients/' + c.id + '/posts'); dirty = false; done(); renderClient(); toast(`${files.length} slides agregados a P${d.number}`);
       }
     } catch (err) { toast(err.message); if (s === 'export') { b.disabled = false; b.innerHTML = `${ic('up')}Exportar a la publicación`; } }
   });
   const askChoice = (n) => new Promise((res) => {
     if (!n) return res('add');
     const m = document.createElement('div'); m.className = 'cscrim';
-    m.innerHTML = `<div class="confirm" role="alertdialog" aria-modal="true"><span class="ci" style="background:var(--tint);color:var(--accent)">${ic('layers')}</span><h3>¿Cómo los agregamos?</h3><p>La publicación ya tiene ${n} archivo${n === 1 ? '' : 's'}. Las fotos que usa el diseño quedan guardadas aparte.</p><div class="row" style="flex-wrap:wrap"><button class="btn" data-c="">Cancelar</button><button class="btn" data-c="add">Agregar al final</button><button class="btn pri" data-c="replace">Reemplazar material</button></div></div>`;
+    m.innerHTML = `<div class="confirm" role="alertdialog" aria-modal="true"><span class="ci" style="background:var(--tint);color:var(--accent)">${ic('layers')}</span><h3>¿Cómo los agregamos?</h3><p>La publicación ya tiene ${n} archivo${n === 1 ? '' : 's'}. Las fotos que usan los slides quedan guardadas aparte.</p><div class="row" style="flex-wrap:wrap"><button class="btn" data-c="">Cancelar</button><button class="btn" data-c="add">Agregar al final</button><button class="btn pri" data-c="replace">Reemplazar material</button></div></div>`;
     m.addEventListener('click', (e) => { const x = e.target.closest('[data-c]'); if (x || e.target === m) { m.remove(); res(x ? x.dataset.c : ''); } });
     document.body.appendChild(m);
   });
   el.querySelectorAll('#sd-ratio button').forEach((x) => x.classList.toggle('on', x.dataset.r === S.ratio));
-  ensureFonts(kit).then(() => { panel(); render(); thumbs(); });
+  ensureFonts(kit).then(() => setMode(mode));
 }
 
 boot();

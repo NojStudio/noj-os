@@ -394,7 +394,8 @@ async function runAgent(env, W, me, aid, b) {
   if (!state[aid]) return fail(403, `El agente «${a.name}» está apagado en este espacio.`);
   const cp = b.campaign && typeof b.campaign === 'object' ? b.campaign : null;
   if (a.needs === 'bank') return fail(400, 'Este agente se usa desde el Banco de media.');
-  const ctx = { input: { n: Math.min(10, Math.max(1, Number(b.n) || 5)), instruction: String(b.instruction || '').slice(0, 500), campaign: cp && {
+  const cur = Array.isArray(b.current) ? b.current.slice(0, 12).map((x) => ({ tpl: String(x.tpl || '').slice(0, 20), kicker: String(x.kicker || '').slice(0, 200), title: String(x.title || '').slice(0, 300), body: String(x.body || '').slice(0, 500), photo: !!x.photo, color: String(x.color || '').slice(0, 10) })) : null;
+  const ctx = { input: { n: b.n ? Math.min(10, Math.max(1, Number(b.n) || 5)) : null, current: cur, photos: Math.min(30, Number(b.photos) || 0), instruction: String(b.instruction || '').slice(0, 1500), campaign: cp && {
     name: String(cp.name || '').slice(0, 120), goal: String(cp.goal || '').slice(0, 800), start: String(cp.start || ''), end: String(cp.end || ''),
     days: Array.isArray(cp.days) ? cp.days.map(Number).filter((d) => d >= 0 && d <= 6) : [], count: Math.min(30, Math.max(1, Number(cp.count) || 6)),
     mix: String(cp.mix || '').slice(0, 200), notes: String(cp.notes || '').slice(0, 1500) } } };
@@ -431,7 +432,8 @@ async function uploadLogo(env, W, cid, request) {
   const form = await request.formData();
   const { key } = await putFile(env, form.get('file'), `${W}/${cid}/marca`);
   let kit = {}; try { kit = c.brand_kit ? JSON.parse(c.brand_kit) : {}; } catch {}
-  kit[form.get('slot') === 'logo_light' ? 'logo_light' : 'logo'] = key;
+  const slot = String(form.get('slot') || 'logo');
+  kit[['logo', 'logo_light', 'lockup', 'lockup_light'].includes(slot) ? slot : 'logo'] = key;
   await env.DB.prepare('UPDATE clients SET brand_kit=? WHERE id=?').bind(JSON.stringify(kit), cid).run();
   return getClient(env, W, cid);
 }
