@@ -582,3 +582,7 @@ textarea,input,select{border-radius:12px}
 select option,select optgroup{background-color:var(--card);color:var(--ink)}
 :root[data-theme="dark"] select{color-scheme:dark}
 .mtools{margin-bottom:-10px}
+.pv-arr{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.85);color:#111;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.pv-arr.l{left:10px}.pv-arr.r{right:10px}.pv-arr svg.i{width:16px;height:16px;stroke-width:2.4}
+.pv-car{position:relative}.pv-car .pv-arr{top:calc(50% - 10px)}
+.pv-car.reel .pv-slides>*{aspect-ratio:9/16;object-fit:cover}

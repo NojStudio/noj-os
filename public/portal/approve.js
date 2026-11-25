@@ -82,14 +82,16 @@ function renderSheet() {
   const p = D.posts.find((x) => x.id === open), c = D.client;
   if (!p) { close(); return; }
   const list = review(), i = list.findIndex((x) => x.id === p.id);
+  const vids = p.media.filter((m) => m.video), ims = p.media.filter((m) => !m.video);
+  const sl = p.kind === 'reel' && vids.length ? [{ ...vids[0], poster: ims[0] && ims[0].url }] : p.media;
   const canDecide = ['pendiente', 'ok', 'cambio'].includes(p.state);
   let el = $('#sheet');
   if (!el) { el = document.createElement('div'); el.id = 'sheet'; el.className = 'sheet'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); document.body.appendChild(el); document.body.style.overflow = 'hidden'; }
   el.innerHTML = `<article class="post">
     <header class="phead">${c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : '<img alt="">'}<div class="who"><b>${esc(c.handle || c.name)}</b><span>${esc(p.location || c.location || '')}</span></div>
       <button class="x" data-act="close" aria-label="Cerrar">${ic('x')}</button></header>
-    <div class="car"><div class="slides" id="slides">${p.media.length ? p.media.map((m) => m.video ? `<video src="${esc(m.url)}" controls playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`).join('') : `<div class="empty">El material de esta publicación se sube pronto.</div>`}</div>
-      ${p.media.length > 1 ? `<span class="count" id="cnt">1/${p.media.length}</span><div class="dots" id="dots">${p.media.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}</div>
+    <div class="car ${p.kind === 'reel' ? 'reel' : ''}"><div class="slides" id="slides">${sl.length ? sl.map((m) => m.video ? `<video src="${esc(m.url)}" ${m.poster ? `poster="${esc(m.poster)}"` : ''} controls playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`).join('') : `<div class="empty">El material de esta publicación se sube pronto.</div>`}</div>
+      ${sl.length > 1 ? `<button class="arr l" data-act="sl" data-d="-1" aria-label="Foto anterior">‹</button><button class="arr r" data-act="sl" data-d="1" aria-label="Foto siguiente">›</button><span class="count" id="cnt">1/${sl.length}</span><div class="dots" id="dots">${sl.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}</div>
     <div class="side">
       <div class="acts">${ic('heart')}${ic('chat')}${ic('send')}<span style="flex:1"></span>${ic('save')}</div>
       <div class="cap"><b>${esc(c.handle || c.name)}</b>${esc(p.copy) || '<span style="color:var(--dim)">Copy en proceso</span>'}</div>
@@ -103,8 +105,8 @@ function renderSheet() {
         <div class="navp"><button data-act="nav" data-v="-1" ${i <= 0 ? 'style="visibility:hidden"' : ''}>‹ Anterior</button><span>${i + 1} de ${list.length}</span><button data-act="nav" data-v="1" ${i >= list.length - 1 ? 'style="visibility:hidden"' : ''}>Siguiente ›</button></div>
       </section>` : ''}
     </div></article>`;
-  const sl = $('#slides');
-  if (sl && p.media.length > 1) sl.onscroll = () => { const k = Math.round(sl.scrollLeft / sl.clientWidth); $('#cnt').textContent = `${k + 1}/${p.media.length}`; [...$('#dots').children].forEach((d, j) => d.classList.toggle('on', j === k)); };
+  const sc = $('#slides');
+  if (sc && sl.length > 1) { const upd = () => { const k = Math.round(sc.scrollLeft / sc.clientWidth); $('#cnt').textContent = `${k + 1}/${sl.length}`; [...$('#dots').children].forEach((d, j) => d.classList.toggle('on', j === k)); $('.arr.l').style.visibility = k > 0 ? 'visible' : 'hidden'; $('.arr.r').style.visibility = k < sl.length - 1 ? 'visible' : 'hidden'; }; sc.onscroll = upd; upd(); }
   if (changing) $('#note').focus();
 }
 
@@ -148,6 +150,7 @@ document.addEventListener('click', (e) => {
   else if (a === 'send-change') { const n = $('#note').value.trim(); if (!n) { toast('Escribe qué cambiarías'); return; } decide('cambio', n); }
   else if (a === 'nav') { const l = review(), i = l.findIndex((x) => x.id === open) + +t.dataset.v; if (l[i]) { open = l[i].id; changing = false; renderSheet(); } }
   else if (a === 'finish') finish();
+  else if (a === 'sl') { const sc = $('#slides'); sc.scrollBy({ left: +t.dataset.d * sc.clientWidth, behavior: 'smooth' }); }
   else if (a === 'full') { full = true; render(); }
   else if (a === 'focus') { full = false; render(); }
   else if (a === 'back') render();

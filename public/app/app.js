@@ -532,17 +532,18 @@ function openPresent() {
     <div class="igbio"><b>${esc(c.name)}</b>${c.bio ? '<br>' + esc(c.bio) : ''}</div>
     ${c.highlights.length ? `<div class="ighl">${c.highlights.map((h) => `<span>${h.image ? `<img src="${esc(h.image)}" alt="">` : '<i></i>'}${esc(h.label)}</span>`).join('')}</div>` : ''}
     <div class="iggrid">${phTiles(fd.ph)}${grid.map((x) => { const m = x.media[0]; return `<button class="tile" data-p="open" data-id="${x.id}" aria-label="${esc(x.title)}">${m ? (m.video ? `<video src="${esc(m.url)}#t=0.5" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`) : `<span class="noimg">${esc(x.title)}</span>`}${x.kind === 'reel' ? REEL : x.kind === 'carr' || x.media.length > 1 ? CARR : ''}</button>`; }).join('')}</div>`;
-  const post = (x) => `<div class="pv-top"><button data-p="back" aria-label="Volver al perfil">${ic('left')}</button><span>Publicaciones</span><i></i></div>
+  const slidesOf = (x) => { const v = x.media.filter((m) => m.video), im = x.media.filter((m) => !m.video); return x.kind === 'reel' && v.length ? [{ ...v[0], poster: im[0] && im[0].url }] : x.media; };
+  const post = (x) => { const sl = slidesOf(x); return `<div class="pv-top"><button data-p="back" aria-label="Volver al perfil">${ic('left')}</button><span>Publicaciones</span><i></i></div>
     <div class="pv-h">${c.avatar ? `<img src="${esc(c.avatar)}" alt="">` : '<span></span>'}<div><b>${handle}</b><small>${esc(x.location || '')}</small></div></div>
-    <div class="pv-car"><div class="pv-slides">${x.media.length ? x.media.map((m) => m.video ? `<video src="${esc(m.url)}" controls playsinline autoplay muted loop></video>` : `<img src="${esc(m.url)}" alt="">`).join('') : '<div class="pv-empty">Material en producción</div>'}</div>${x.media.length > 1 ? `<span class="pv-cnt">1/${x.media.length}</span><div class="pv-dots">${x.media.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</div>
+    <div class="pv-car ${x.kind === 'reel' ? 'reel' : ''}"><div class="pv-slides">${sl.length ? sl.map((m) => m.video ? `<video src="${esc(m.url)}" ${m.poster ? `poster="${esc(m.poster)}"` : ''} controls playsinline autoplay muted loop></video>` : `<img src="${esc(m.url)}" alt="">`).join('') : '<div class="pv-empty">Material en producción</div>'}</div>${sl.length > 1 ? `<button class="pv-arr l" data-p="sl" data-d="-1" aria-label="Foto anterior">${ic('left')}</button><button class="pv-arr r" data-p="sl" data-d="1" aria-label="Foto siguiente">${ic('right')}</button><span class="pv-cnt">1/${sl.length}</span><div class="pv-dots">${sl.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}</div>
     <div class="pv-acts">${ic('heart')}${ic('chat')}${ic('send')}<span style="flex:1"></span>${ic('save')}</div>
     <div class="pv-cap"><b>${handle}</b> ${esc(x.copy) || '<span style="opacity:.5">Copy en proceso</span>'}</div>
-    <div class="pv-date">${x.date ? esc(x.date) : ''}</div>`;
+    <div class="pv-date">${x.date ? esc(x.date) : ''}</div>`; };
   const draw = () => {
     const sc = el.querySelector('.scroll');
     sc.innerHTML = cur ? post(grid.find((x) => x.id === cur)) : profile(); sc.scrollTop = 0;
     const sl = el.querySelector('.pv-slides');
-    if (sl) sl.onscroll = () => { const k = Math.round(sl.scrollLeft / sl.clientWidth); const cn = el.querySelector('.pv-cnt'); if (cn) cn.textContent = `${k + 1}/${sl.children.length}`; el.querySelectorAll('.pv-dots i').forEach((d, j) => d.classList.toggle('on', j === k)); };
+    if (sl) { const upd = () => { const k = Math.round(sl.scrollLeft / sl.clientWidth), n = sl.children.length; const cn = el.querySelector('.pv-cnt'); if (cn) cn.textContent = `${k + 1}/${n}`; el.querySelectorAll('.pv-dots i').forEach((d, j) => d.classList.toggle('on', j === k)); const l = el.querySelector('.pv-arr.l'), r = el.querySelector('.pv-arr.r'); if (l) l.style.visibility = k > 0 ? 'visible' : 'hidden'; if (r) r.style.visibility = k < n - 1 ? 'visible' : 'hidden'; }; sl.onscroll = upd; upd(); }
     el.querySelector('.pnav.l').style.visibility = cur && grid.findIndex((x) => x.id === cur) > 0 ? 'visible' : 'hidden';
     el.querySelector('.pnav.r').style.visibility = cur && grid.findIndex((x) => x.id === cur) < grid.length - 1 ? 'visible' : 'hidden';
   };
@@ -552,7 +553,7 @@ function openPresent() {
   const close = () => { el.remove(); document.removeEventListener('keydown', key, true); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); };
   const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); cur ? (cur = null, draw()) : close(); } else if (cur && e.key === 'ArrowRight') step(1); else if (cur && e.key === 'ArrowLeft') step(-1); };
   el.addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const v = b.dataset.p;
-    if (v === 'exit') close(); else if (v === 'back') { cur = null; draw(); } else if (v === 'open') { cur = b.dataset.id; draw(); } else if (v === 'prev') step(-1); else if (v === 'next') step(1); });
+    if (v === 'exit') close(); else if (v === 'back') { cur = null; draw(); } else if (v === 'open') { cur = b.dataset.id; draw(); } else if (v === 'prev') step(-1); else if (v === 'next') step(1); else if (v === 'sl') { const sl = el.querySelector('.pv-slides'); sl.scrollBy({ left: +b.dataset.d * sl.clientWidth, behavior: 'smooth' }); } });
   document.addEventListener('keydown', key, true);
   document.body.appendChild(el); draw();
   if (el.requestFullscreen && matchMedia('(min-width:900px)').matches) el.requestFullscreen().catch(() => {});

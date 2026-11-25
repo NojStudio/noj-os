@@ -134,3 +134,7 @@ svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .more{display:block;width:calc(100% - 32px);margin:10px 16px;padding:11px;border-radius:12px;border:1px solid var(--ln2);color:var(--tx2);font:500 13px var(--f);text-align:center;background:#0b0b0b}
 .more:hover{border-color:#555;color:var(--tx)}
 @media (max-width:899px){.review{position:sticky;bottom:0;z-index:2;box-shadow:0 -12px 24px rgba(0,0,0,.6)}}
+.arr{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.88);color:#111;font:600 22px/30px var(--f);text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:2}
+.arr.l{left:10px}.arr.r{right:10px}
+.car.reel .slides>*{aspect-ratio:9/16}
+@media (min-width:900px){.post .car .arr{top:50%}}
