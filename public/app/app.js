@@ -861,46 +861,61 @@ document.addEventListener('change', async (e) => {
 
 // ================= DISEÑADOR DE SLIDES =================
 // Plantillas basadas en las piezas que ya hace el estudio: frase sobre crema o color, foto con título, momento (hora + frase), foto con texto y cierre.
-const TPL = { portada: 'Foto · título', frase: 'Frase · claro', frase_color: 'Frase · color', foto_texto: 'Foto + texto', momento: 'Momento', cierre: 'Cierre', libre: 'Libre' };
+const TPL = { portada: 'Foto · título abajo', foto_arriba: 'Foto · título arriba', frase: 'Frase · claro', frase_color: 'Frase · color', centrado: 'Centrado', foto_texto: 'Foto + texto', momento: 'Momento', cierre: 'Cierre', libre: 'Libre' };
 const TPL_OLD = { texto: 'frase', foto: 'foto_texto' };
-const BGDEF = { portada: { color: 'ink', dim: 0.3, grad: true }, frase: { color: 'bg' }, frase_color: { color: 'ink' }, foto_texto: { color: 'bg', box: [0.5, 1] }, momento: { color: 'ink', dim: 0.42 }, cierre: { color: 'ink' }, libre: { color: 'ink', dim: 0.2, grad: true } };
-const PHOTO_TPL = ['portada', 'foto_texto', 'momento', 'libre'];
-const LOGO_DEF = { portada: true, frase: true, frase_color: true, foto_texto: true, momento: false, cierre: true, libre: false };
+const BGDEF = { portada: { color: 'ink', dim: 0.55, grad: 'bottom' }, foto_arriba: { color: 'ink', dim: 0.5, grad: 'top' }, frase: { color: 'bg' }, frase_color: { color: 'ink' }, centrado: { color: 'bg' }, foto_texto: { color: 'bg', box: [0.5, 1] }, momento: { color: 'ink', dim: 0.45 }, cierre: { color: 'ink' }, libre: { color: 'ink', dim: 0.25, grad: 'bottom' } };
+const PHOTO_TPL = ['portada', 'foto_arriba', 'foto_texto', 'momento', 'libre'];
+const LOGO_DEF = { portada: false, foto_arriba: false, frase: true, frase_color: true, centrado: true, foto_texto: true, momento: false, cierre: true, libre: false };
 const COLOR = (k, v) => ({ bg: k.bg, ink: k.ink, accent: k.accent, white: '#FFFFFF', black: '#111111' }[v] || v || k.ink);
 const showLogo = (sl) => (sl.logo == null ? LOGO_DEF[sl.tpl] : sl.logo);
+// Medidas tomadas de las piezas de Garda (1080 × 1350): margen 108, logo de 300 px, rayita de 108 × 4 a 74 px del título,
+// títulos en itálica de 138 px centrados en la pieza y pie en mayúsculas de 40 px con 12 px de espaciado.
 function tplLayers(sl, H, c, kit) {
-  const k = sl.content || {}, L = [], M = 100, W = 1080 - M * 2, lg = showLogo(sl);
+  const k = sl.content || {}, L = [], M = 108, W = 1080 - M * 2, lg = showLogo(sl), sy = (v) => Math.round(v * H / 1350);
   const T = (o) => L.push({ t: 'text', x: M, w: W, align: 'left', ...o });
-  const title = (o) => T({ key: 'title', text: k.title, font: 'title', italic: true, lh: 1.08, ...o });
+  const title = (o) => T({ key: 'title', text: k.title, font: 'title', italic: true, lh: 1.13, ...o });
   if (sl.tpl === 'frase' || sl.tpl === 'frase_color') {
     const fg = sl.tpl === 'frase' ? 'ink' : 'bg';
-    if (lg) L.push({ t: 'logo', which: sl.tpl === 'frase' ? 'dark' : 'light', x: M, y: 128, w: 300 });
-    L.push({ t: 'rule', key: 'rule', x: M, y: Math.round(H * 0.395), w: 108, h: 3, color: 'accent' });
-    title({ size: 118, color: fg, below: 'rule', gap: 56 });
-    T({ key: 'body', text: k.body, font: 'body', size: 38, color: fg, below: 'title', gap: 34, lh: 1.4, op: 0.85, w: 760 });
-    T({ key: 'kicker', text: k.kicker || kit.address, font: 'label', size: 32, color: fg, upper: true, ls: 10, y: H - 135, anchor: 'bottom', lh: 1.6, w: 720 });
+    if (lg) L.push({ t: 'logo', which: sl.tpl === 'frase' ? 'dark' : 'light', x: M, y: sy(130), w: 300 });
+    const one = !String(k.title || '').includes('\n') && String(k.title || '').length <= 13;
+    title({ x: M - 4, w: 880, size: (one ? 160 : 140) * (H < 1200 ? 0.88 : 1), color: fg, vcenter: Math.round(H * 0.502) });
+    L.push({ t: 'rule', x: M, w: 108, h: 4, color: 'accent', above: 'title', gap: 60 });
+    T({ key: 'body', text: k.body, font: 'body', size: 36, color: fg, below: 'title', gap: 34, lh: 1.5, op: 0.85, w: 760 });
+    T({ key: 'kicker', text: k.kicker || kit.address, font: 'label', size: 40, color: fg, upper: true, ls: 12.5, y: H - sy(114), anchor: 'bottom', lh: 1.55, w: 640 });
+  } else if (sl.tpl === 'centrado') {
+    if (lg) L.push({ t: 'logo', which: 'dark', x: 540 - 110, y: sy(120), w: 220 });
+    title({ x: 90, w: 900, size: 104, color: 'ink', align: 'center', vcenter: Math.round(H * 0.47) });
+    L.push({ t: 'rule', x: 540 - 40, w: 80, h: 3, color: 'accent', above: 'title', gap: 60 });
+    T({ key: 'body', text: k.body, font: 'body', size: 34, color: 'ink', below: 'title', gap: 40, lh: 1.55, op: 0.85, align: 'center', x: 190, w: 700 });
+    T({ key: 'kicker', text: k.kicker || kit.address, font: 'label', size: 26, color: 'accent', upper: true, ls: 8, y: H - sy(120), anchor: 'bottom', align: 'center', x: 90, w: 900 });
   } else if (sl.tpl === 'portada' || sl.tpl === 'libre') {
-    if (lg) L.push({ t: 'logo', which: 'light', x: M, y: 110, w: 260 });
-    T({ key: 'kicker', text: k.kicker, font: 'label', size: 26, color: 'white', upper: true, ls: 6, y: H - 120, anchor: 'bottom', op: 0.9 });
-    title({ size: sl.tpl === 'libre' ? 84 : 96, color: 'white', above: 'kicker', gap: 26 });
-    if (k.body) T({ key: 'body', text: k.body, font: 'body', size: 34, color: 'white', above: 'title', gap: 28, lh: 1.4, op: 0.9, w: 820 });
+    if (lg) L.push({ t: 'logo', which: 'light', x: 82, y: sy(110), w: 240 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 27, color: 'bg', upper: true, ls: 1, x: 82, y: H - sy(145), anchor: 'bottom', op: 0.82 });
+    title({ x: 80, w: 900, size: 64, color: 'bg', above: 'kicker', gap: 20, lh: 1.15 });
+    if (k.body) T({ key: 'body', text: k.body, font: 'body', size: 32, color: 'bg', above: 'title', gap: 26, lh: 1.5, op: 0.9, x: 82, w: 820 });
+  } else if (sl.tpl === 'foto_arriba') {
+    title({ x: 80, w: 900, size: 64, color: 'bg', y: sy(100), lh: 1.15 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 27, color: 'bg', upper: true, ls: 1, x: 82, below: 'title', gap: 12, op: 0.82 });
+    T({ key: 'body', text: k.body, font: 'body', size: 32, color: 'bg', below: 'kicker', gap: 26, lh: 1.5, op: 0.9, x: 82, w: 760 });
+    if (lg) L.push({ t: 'logo', which: 'light', x: 82, y: H - sy(150), w: 220 });
   } else if (sl.tpl === 'foto_texto') {
-    if (lg) L.push({ t: 'logo', which: 'dark', x: M, y: 92, w: 220 });
-    if (kit.tagline) T({ key: 'tag', text: kit.tagline, font: 'label', size: 20, color: 'accent', upper: true, ls: 6, x: 540, w: 1080 - M - 540, y: 112, align: 'right' });
-    L.push({ t: 'rule', x: M, y: 172, w: W, h: 2, color: 'ink', op: 0.6 });
-    title({ size: 92, color: 'ink', y: 220, lh: 1.05 });
-    T({ key: 'body', text: k.body, font: 'body', size: 32, color: 'ink', below: 'title', gap: 26, lh: 1.45, op: 0.85 });
-    if (k.kicker) T({ key: 'kicker', text: k.kicker, font: 'label', size: 22, color: 'white', upper: true, ls: 6, y: H - 70, anchor: 'bottom' });
+    if (lg) L.push({ t: 'logo', which: 'dark', x: M, y: sy(96), w: 230 });
+    if (kit.tagline) T({ key: 'tag', text: kit.tagline, font: 'label', size: 21, color: 'accent', upper: true, ls: 6, x: 540, w: 1080 - M - 540, y: sy(110), align: 'right' });
+    L.push({ t: 'rule', x: M, y: sy(170), w: W, h: 2, color: 'ink', op: 0.55 });
+    title({ x: M - 4, size: 104, color: 'ink', y: sy(212), lh: 1.08 });
+    T({ key: 'body', text: k.body, font: 'body', size: 31, color: 'ink', below: 'title', gap: 28, lh: 1.55, op: 0.85, w: 820 });
+    if (k.kicker) T({ key: 'kicker', text: k.kicker, font: 'label', size: 24, color: 'bg', upper: true, ls: 6, y: H - sy(64), anchor: 'bottom', op: 0.9 });
   } else if (sl.tpl === 'momento') {
-    T({ key: 'title', text: k.title, font: 'label', size: 150, color: 'white', y: Math.round(H * 0.46), anchor: 'bottom', lh: 1 });
-    T({ key: 'kicker', text: k.kicker, font: 'label', size: 26, color: 'white', upper: true, ls: 8, below: 'title', gap: 26, op: 0.85 });
-    T({ key: 'body', text: k.body, font: 'title', italic: true, size: 58, color: 'white', below: 'kicker', gap: 30, lh: 1.25 });
-    if (showLogo(sl)) L.push({ t: 'logo', which: 'light', x: M, y: H - 170, w: 220 });
+    T({ key: 'title', text: k.title, font: 'label', size: 132, color: 'bg', y: Math.round(H * 0.6), anchor: 'bottom', lh: 1, x: 82 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 24, color: 'bg', upper: true, ls: 8, below: 'title', gap: 22, op: 0.8, x: 86 });
+    T({ key: 'body', text: k.body, font: 'title', italic: true, size: 60, color: 'bg', below: 'kicker', gap: 26, lh: 1.2, x: 82, w: 880 });
+    if (lg) L.push({ t: 'logo', which: 'light', x: 82, y: H - sy(160), w: 220 });
   } else if (sl.tpl === 'cierre') {
-    title({ size: 104, color: 'bg', y: Math.round(H * 0.3), align: 'center', lh: 1.06 });
-    T({ key: 'body', text: k.body, font: 'body', size: 36, color: 'bg', below: 'title', gap: 34, align: 'center', lh: 1.45, op: 0.9 });
-    T({ key: 'kicker', text: k.kicker, font: 'label', size: 26, color: 'accent', upper: true, ls: 8, below: 'body', gap: 50, align: 'center' });
-    if (lg) L.push({ t: 'logo', which: 'light', lock: true, x: 540 - 210, y: H - 360, w: 420 });
+    title({ x: 90, w: 900, size: 112, color: 'bg', align: 'center', vcenter: Math.round(H * 0.36) });
+    L.push({ t: 'rule', x: 540 - 54, w: 108, h: 4, color: 'accent', above: 'title', gap: 66 });
+    T({ key: 'body', text: k.body, font: 'body', size: 36, color: 'bg', below: 'title', gap: 38, align: 'center', lh: 1.5, op: 0.88, x: 150, w: 780 });
+    T({ key: 'kicker', text: k.kicker, font: 'label', size: 27, color: 'accent', upper: true, ls: 9, below: 'body', gap: 44, align: 'center', x: 90, w: 900 });
+    if (lg) L.push({ t: 'logo', which: 'light', lock: true, x: 540 - 190, y: H - sy(330), w: 380 });
   }
   return L;
 }
@@ -929,14 +944,20 @@ async function drawSlide(ctx, sl, kit, H, c) {
     const sc = Math.max(bw / im.width, bh / im.height) * (bg.zoom || 1), iw = im.width * sc, ih = im.height * sc;
     const ox = bx + (bw - iw) * (bg.fx ?? 0.5), oy = by + (bh - ih) * (bg.fy ?? 0.5);
     ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.clip(); ctx.drawImage(im, ox, oy, iw, ih);
-    if (bg.dim) { if (bg.grad) { const g = ctx.createLinearGradient(0, by + bh * 0.35, 0, by + bh); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${Math.min(0.9, bg.dim + 0.35)})`); ctx.fillStyle = g; ctx.fillRect(bx, by, bw, bh); ctx.fillStyle = `rgba(0,0,0,${bg.dim * 0.3})`; ctx.fillRect(bx, by, bw, bh); } else { ctx.fillStyle = `rgba(0,0,0,${bg.dim})`; ctx.fillRect(bx, by, bw, bh); } }
+    if (bg.dim) {
+      if (bg.grad) { const top = bg.grad === 'top', g = ctx.createLinearGradient(0, top ? by + bh * 0.55 : by + bh * 0.4, 0, top ? by : by + bh); g.addColorStop(0, 'rgba(18,8,9,0)'); g.addColorStop(1, `rgba(18,8,9,${Math.min(0.85, bg.dim)})`); ctx.fillStyle = g; ctx.fillRect(bx, by, bw, bh); ctx.fillStyle = `rgba(18,8,9,${bg.dim * 0.22})`; ctx.fillRect(bx, by, bw, bh); }
+      else { ctx.fillStyle = `rgba(18,8,9,${bg.dim})`; ctx.fillRect(bx, by, bw, bh); } }
     ctx.restore();
   }
   const layers = sl.layers || tplLayers(sl, H, c, kit), boxes = [], byKey = {};
   const ref = (r) => (typeof r === 'string' ? byKey[r] : boxes[r]);
   for (let i = 0; i < layers.length; i++) {
     const L = layers[i];
-    if (L.t === 'rule') { ctx.globalAlpha = L.op ?? 1; ctx.fillStyle = COLOR(kit, L.color || 'accent'); ctx.fillRect(L.x, L.y, L.w, L.h || 2); ctx.globalAlpha = 1; boxes.push({ x: L.x, y: L.y, w: L.w, h: L.h || 2 }); if (L.key) byKey[L.key] = boxes[i]; continue; }
+    if (L.t === 'rule') {
+      const rh = L.h || 2, ra = L.above != null && ref(L.above), rb = L.below != null && ref(L.below);
+      const ry = ra ? ra.ink - (L.gap || 0) - rh : rb ? rb.y + rb.h + (L.gap || 0) : L.y;
+      ctx.globalAlpha = L.op ?? 1; ctx.fillStyle = COLOR(kit, L.color || 'accent'); ctx.fillRect(L.x, ry, L.w, rh); ctx.globalAlpha = 1;
+      boxes.push({ x: L.x, y: ry, w: L.w, h: rh, ink: ry }); if (L.key) byKey[L.key] = boxes[i]; continue; }
     if (L.t === 'logo') {
       const light = L.which === 'light';
       const key = L.lock ? (light ? kit.lockup_light || kit.logo_light : kit.lockup || kit.logo) : (light ? kit.logo_light || kit.lockup_light : kit.logo || kit.lockup);
@@ -955,12 +976,14 @@ async function drawSlide(ctx, sl, kit, H, c) {
     const rb = L.below != null && ref(L.below), ra = L.above != null && ref(L.above);
     if (rb) y = rb.h ? rb.y + rb.h + (L.gap || 0) : rb.y;
     if (ra) y = ra.y - (ra.h ? L.gap || 0 : 0) - h;
+    else if (L.vcenter != null) y = L.vcenter - h / 2;
     else if (L.anchor === 'bottom') y -= h;
     ctx.fillStyle = COLOR(kit, L.color); ctx.globalAlpha = L.op ?? 1; ctx.textBaseline = 'top';
     const al = L.align || 'left', ax = al === 'center' ? L.x + L.w / 2 : al === 'right' ? L.x + L.w : L.x;
     lines.forEach((ln, j) => fillSpaced(ctx, ln, ax, y + j * lh + (lh - L.size) * 0.5, ls, al));
     ctx.globalAlpha = 1;
-    boxes.push({ x: L.x, y, w: L.w, h }); if (L.key) byKey[L.key] = boxes[i];
+    // ink: donde empieza la letra (sin el interlineado), para colocar la rayita a la distancia exacta.
+    boxes.push({ x: L.x, y, w: L.w, h, ink: y + (lh - L.size) * 0.5 + L.size * (L.font === 'label' ? 0.2 : -0.045) }); if (L.key) byKey[L.key] = boxes[i];
   }
   ctx.restore();
   return { layers, boxes };
@@ -1040,7 +1063,7 @@ function openSlides() {
       <label class="row mu sd-sec" style="gap:8px;font-size:13px;flex-direction:row"><input type="checkbox" data-s="logo" ${showLogo(sl) ? 'checked' : ''} style="width:auto"> Mostrar logo</label>`;
   };
   const refresh = async () => { dirty = true; if (mode === 'detail') { panel(); await render(); thumbs(); } else if (mode === 'simple') row(); };
-  const materialize = () => { const sl = S.slides[cur]; if (sl.layers) return; sl.layers = last.layers.map((L, i) => { const b = last.boxes[i] || {}; const o = { ...L }; delete o.below; delete o.above; delete o.gap; if (o.t === 'text') { o.y = b.y; o.anchor = null; } return o; }); };
+  const materialize = () => { const sl = S.slides[cur]; if (sl.layers) return; sl.layers = last.layers.map((L, i) => { const b = last.boxes[i] || {}; const o = { ...L }; delete o.below; delete o.above; delete o.gap; if (o.t === 'text') { o.y = b.y; o.anchor = null; o.vcenter = null; } if (o.t === 'rule') o.y = b.y; return o; }); };
   let drag = null;
   const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * 1080 / r.width, y: (e.clientY - r.top) * H() / r.height }; };
   cv.onpointerdown = (e) => { if (!last) return; const p = pt(e); cv.setPointerCapture(e.pointerId);
@@ -1151,4 +1174,5 @@ function openSlides() {
   ensureFonts(kit).then(() => setMode(mode));
 }
 
+window.__nojDesign = { drawSlide, newSlide, kitOf, ensureFonts };
 boot();
