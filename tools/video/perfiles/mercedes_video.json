@@ -1,0 +1,26 @@
+{
+  "cliente": "Mercedes-Benz Prestige Motors Interlomas",
+  "origen": "Finales entregados CLA200 (CLA200.mp4, reel.mp4) y Evento CLA200 (reel.mp4, reel_2.mp4, Evento CLA .mp4, cla200_2.mp4). Borrador v0: Luis confirma que es regla y que fue casualidad.",
+  "formato": {"aspecto": "9:16", "resolucion": "2160x3840", "fps": 60, "duracion_reel_s": [27, 43]},
+  "ritmo": {
+    "toma_mediana_s": {"producto": 2.4, "con_presentador": 1.8, "evento": 1.5},
+    "toma_min_s": 0.7,
+    "nota": "Mas pausado que Garda (0.63 s por toma). En tomas oscuras la deteccion de cortes se queda corta; confirmar con el proyecto de CapCut."
+  },
+  "apertura": [
+    "Producto: de negro a la luz (trazo de LED, estrella iluminada) en ~2 s",
+    "Evento: tarjeta Prestige Motors Interlomas blanca sobre negro"
+  ],
+  "cierre": [
+    "Producto: regresa a negro despues de la estrella (espejo de la apertura) ~2-3 s",
+    "Evento: tarjeta Prestige Motors + estrella con brillo"
+  ],
+  "contenido": ["estrella y parrilla", "faros y calaveras", "insignia CLA 200", "rines", "volante e interior", "motor", "angulos bajos", "showroom oscuro con acentos rojos"],
+  "texto": {"overlays": "casi nulos; la marca entra por logo/tarjeta y por las insignias del auto", "regla": "no tapar la estrella, la insignia del modelo ni los faros"},
+  "color": {"look": "oscuro, negros profundos, alto contraste, rojo de acento", "luminancia_media_0_255": [24, 52]},
+  "alertas_para_el_critico": [
+    "Cola en negro mayor a 2.5 s (reel CLA200 trae ~3 s en negro al final)",
+    "Tramos casi negros a media pieza (Evento reel 14-21 s): en celular se pierden",
+    "Exportacion con huecos negros largos (cla200_2.mp4: 26 de 40 cuadros muestreados en negro) — revisar si es un render fallido"
+  ]
+}
